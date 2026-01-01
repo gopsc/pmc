@@ -1,0 +1,39 @@
+body {
+    display: flex;
+    justify-content: center;
+}
+
+.main {
+    background-color: rgb(233, 233, 233);
+    padding: 20px 10px;
+}
+
+.main .title {
+    font-weight: bold;
+}
+
+.main .name-con,
+.main .passwd-con {
+    display: flex;
+    justify-content: center;
+}
+
+.main .name-con {
+    margin-top: 20px;
+}
+
+.main .passwd-con {
+    margin-top: 10px;
+}
+
+.main .name-con .user-name-text,
+.main .passwd-con .user-passwd-text {
+    width: 100px;
+}
+
+.main .login-con {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-top: 10px;
+}

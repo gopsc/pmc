@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="icon" href="data:;base64,=">
+    <link rel="stylesheet" href="{{ url_for('static', filename='features/module.css') }}">
+</head>
+
+<body>
+    <div class="top-bar-con">
+        <button class="newBtn">新建</button>
+        <button class="flushBtn">刷新</button>
+    </div>
+    <table border="1">
+        <thead>
+            <td>模块名</td>
+            <td>操作</td>
+        </thead>
+        <tbody>
+            {% for item in modules %}
+            <tr>
+                <td>{{ item }}</td>
+                <td>
+                    <button class="removeBtn" onclick="alert('暂未完成')">移除</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+
+</html>

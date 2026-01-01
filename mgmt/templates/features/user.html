@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="icon" href="data:;base64,=">
+    <link rel="stylesheet" href="{{ url_for('static', filename='features/user.css') }}">
+</head>
+
+<body>
+    <div class="top-bar-con">
+        <button class="addUserBtn" onclick="addUser()">添加用户</button>
+        <button class="flushBtn" onclick="flush()">刷新</button>
+    </div>
+
+    <table border="1">
+        <thead>
+            <td>用户ID</td>
+            <td>用户名</td>
+            <td>用户角色</td>
+            <td>操作</td>
+        </thead>
+        <tbody>
+            {% for item in response %}
+            <tr>
+                <td>{{ item.user_id}}</td>
+                <td>{{ item.username }}</td>
+                <td>{{ item.role }}</td>
+                <td>
+                    {% if current_role == "admin" %}
+                    <button class="changePasswdBtn" onclick="changePasswd('{{ item.user_id }}')">修改密码</button>
+                    {% if item.username != "admin" %}
+                    <button class="deleteUserBtn" onclick="deleteUser('{{ item.user_id }}')">删除用户</button>
+                    {% endif %}
+                    {% endif %}
+
+                    {% if current_role != "admin" and current_user_id == item.user_id %}
+                    <button class="changePasswdBtn" onclick="changePasswd('{{ item.user_id }}')">修改密码</button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <script>
+        function addUser() {
+            const url = "{{ url_for('user.add_user') }}"
+            const addReq = new XMLHttpRequest()
+
+            let data = new URLSearchParams()
+            // get user name
+            const name = prompt("请输入用户名")
+            if (name === null) return
+            if (name === "") {
+                alert("请输入用户名")
+                return
+            } else {
+                data.append("username", name)
+            }
+            // get user password
+            const passwd = prompt("请输入密码")
+            if (passwd === null) return
+            if (passwd === "") {
+                alert("请输入密码")
+                return
+            } else {
+                data.append("password", passwd)
+            }
+
+            addReq.open("post", url, true)
+            addReq.send(data)
+
+            addReq.onload = () => {
+                if (addReq.status == 200 && addReq.readyState == 4) {
+                    alert(JSON.parse(addReq.responseText).message)
+                    flush()
+                    return
+                }
+
+                if (addReq.status == 500) {
+                    alert("服务端错误")
+                    return
+                } else {
+                    alert(`意外错误 (${addReq.status})`)
+                    return
+                }
+            }
+        }
+
+        function changePasswd(id) {
+            const url = "{{ url_for('user.change_password') }}"
+            const changeReq = new XMLHttpRequest()
+
+            let data = new URLSearchParams()
+            data.append("user_id", id)
+
+            // get user password
+            const passwd = prompt("请输入新密码")
+            if (passwd === null) return
+            if (passwd === "") {
+                alert("请输入密码")
+                return
+            } else {
+                data.append("new_password", passwd)
+            }
+
+            changeReq.open("post", url, true)
+            changeReq.send(data)
+            changeReq.onload = () => {
+                if (changeReq.status == 200 && changeReq.readyState == 4) {
+                    alert(JSON.parse(changeReq.responseText).message)
+                    flush()
+                    return
+                }
+
+                if (changeReq.status == 500) {
+                    alert("服务端错误")
+                    return
+                } else {
+                    alert(`意外错误 (${changeReq.status})`)
+                    return
+                }
+            }
+        }
+
+        function deleteUser(id) {
+            if (!confirm("删除用户后不可恢复,确认继续?")) {
+                return
+            }
+            const url = "{{ url_for('user.delete_user', user_id=0) }}".replace("0", id)
+            const delReq = new XMLHttpRequest()
+
+            delReq.open("post", url, true)
+            delReq.send()
+
+            delReq.onload = () => {
+                if (delReq.status == 200 && delReq.readyState == 4) {
+                    alert(JSON.parse(delReq.responseText).message)
+                    flush()
+                    return
+                }
+
+                if (delReq.status == 500) {
+                    alert("服务端错误")
+                    return
+                } else {
+                    alert(`意外错误 (${delReq.status})`)
+                    return
+                }
+            }
+        }
+
+        function flush() {
+            window.location = "{{ url_for('user.user') }}"
+        }
+    </script>
+</body>
+
+</html>

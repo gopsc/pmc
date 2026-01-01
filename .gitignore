@@ -1,0 +1,119 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+
+
+# cangjie
+build/
+target/
+output/
+module-resolve.json
+module-lock.json
+cjpm.lock
+.cjpm-history
+*.macrocall
+*.gcda
+*.gcno
+
+
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+
+
+# 我加的
+.env/
+*.db
+*.api_key
+private_key.pem
+pmcd
+lci/lci
+cweb/dn
+rzgs_2
+crt
+
+# 其他
+log/
+report/
+tmp/
+*.cache
+*.pyc
+*.cython
+#*.jpg
+#*.png
+*.pth
+.eggs/
+*.egg-info
+.idea/
+.vscode/
+
+# nodejs
+node_modules/
+
+#python
+__pycache__/
+venv
+
+# do not ignore the log folder by pmc-mgmt
+!./mgmt/app/log/
+
+# go
+go.mod
+go.sum
+
+
+# VS
+x64
+.vs
