@@ -11,7 +11,7 @@ import csv
 import time
 script_dir = os.path.dirname(os.path.abspath(__file__))
 with open(f"{script_dir}/_init.csv", encoding='utf-8') as f:
-    reader = csv.reader(f, delimiter='\n')
+    reader = csv.reader(f)
     records = [row[0] for row in reader]
 def main():
     comm = PmcComm('http://localhost:8012')

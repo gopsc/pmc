@@ -14,7 +14,7 @@ SRV_DIR := /etc/systemd/system
 
 CPP:= g++
 
-LIBS := -lpthread -lssl -lcrypto #-lcpp-httplib
+LIBS := -lpthread -lssl -lcrypto -lcpp-httplib
 
 CPPFLAGS := --std=c++17 -O1 -pipe #-Wall -Werror
 
