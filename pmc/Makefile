@@ -26,8 +26,8 @@ install: $(APP_NAME)
 	@echo "正在安装 $(APP_NAME) 到$(INSTL_DIRS)"
 	@
 	@mkdir -p $(INSTL_DIRS)
-	@cp -f start_pmcd.sh $(INSTL_DIRS)
-	@chmod 755 $(INSTL_DIRS)/start_pmcd.sh
+	@cp -f pmcd $(INSTL_DIRS)
+	#@chmod 755 $(INSTL_DIRS)/pmcd
 	@
 	@echo "正在配置 $(APP_NAME)"
 	@mkdir -p $(CONF_DIR)
@@ -42,7 +42,7 @@ install: $(APP_NAME)
 uninstall:
 	@echo "正在从 $(INSTL_DIRS) 卸载 $(APP_NAME)"
 	@
-	@rm -f $(INSTL_DIRS)/start_pmcd.sh
+	@rm -f $(INSTL_DIRS)/pmcd
 	#@rm -f $(CONF_DIRS)/$(CONF_NAME)
 	@
 	@systemctl stop $(SRV_NAME)
