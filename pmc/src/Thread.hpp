@@ -187,11 +187,7 @@ namespace qing {
 
 		void main() {
 
-			// 需要等待对象完成构造 现在已经改为放在对象构造完之后激活
-            //
-            // 之前留下的
-            //
-			//std::this_thread::sleep_for(std::chrono::milliseconds(10L));
+			/* 在对象构造完之后应该激活 */
 
 			// 回字形循环
 			while (check() != Fsm::Stat::SHUT) {

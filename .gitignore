@@ -1,5 +1,6 @@
 #prj
 extra/
+users/
 
 
 # Prerequisites
@@ -81,12 +82,12 @@ cjpm.lock
 .env/
 *.db
 *.api_key
-private_key.pem
+*.key
+*.pem
 pmcd
-lci/lci
-cweb/dn
 rzgs_2
 crt
+cert
 
 # 其他
 log/

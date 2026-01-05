@@ -4,7 +4,8 @@
 
 
 ## PMC的安装方式
-``` bash
+``` bash   
+# 1.安装依赖
 sudo apt update
 sudo apt install git g++ cmake
 #sudo apt install openjdk-17-jdk maven
@@ -12,12 +13,15 @@ sudo apt install git g++ cmake
 sudo apt install nlohmann-json3-dev
 sudo apt install libboost-dev
 sudo apt install libssl-dev
-git clone https://gitee.com/qingsong-gap/tws
-sudo mv tws /
-cd /tws
-cd _res
-#... (安装libargs 和 cpp_httplib)
-cd ../pmc
+
+2. 创建项目
+mkdir bot
+sudo mv bot /
+cd /bot
+git clone https://github.com/gopsc/pmc
+cd /pmc
+cd _res   #... (安装libargs 和 cpp_httplib)
+cd ../pmc  # 这是pmc模块
 make
 #sudo make install
 ```
@@ -37,6 +41,9 @@ PMC在启动时生成一个AES密钥，然后用一个RSA公钥将其加密发�
 
 # 切换工作目录
 cd "$(dirname "$0")" || exit
+
+# 准备工作（安装依赖）
+#bash ./_set.sh
 
 # 准备工作（比如激活虚拟环境）
 #source ./.env/bin/activate

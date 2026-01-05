@@ -20,6 +20,6 @@ def main():
     for item in records:
         if item and not item.startswith('#'):
             comm.try_start(item)
-            time.sleep(1)
+            time.sleep(1)  # 保持一定的时间间隔，避免CPU占用
 if __name__ == "__main__":
     main()

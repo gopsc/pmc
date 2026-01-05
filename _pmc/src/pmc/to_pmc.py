@@ -85,7 +85,7 @@ class PmcComm:
         try:
             self.start(module)
         except Exception as e:
-            print(e, file=sys.stderr)
+            print(f'{module}: {e}', file=sys.stderr)
        
     def kill(self, pid: int) -> str:
         msg = json.dumps({'pid': pid})
