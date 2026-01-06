@@ -1,44 +1,38 @@
 /*
- * 问：什么是条件变量？
+ * 利用条件变量进行等待
  *
- * 答：条件变量（Condition Variable）是多线程编程中用于线程间同步的核心机制，它允许线程在特定条件不满足时主动阻塞（休眠），并在条件可能满足时被其他线程唤醒，从而避免忙等待（Busy-Waiting）造成的CPU浪费。
+ * FIXME: deepseek 认为有一个设计缺陷：它只能用于单次等待-唤醒的场景。
+ * FIXME: 可能导致永久堵塞，应使用带超时的等待
+ * FIXME: 使用标准库的 future/promise
  */
 
 #include <thread>
-#include <atomic> // 也许将字段flag创建为原子变量？
+#include <atomic> /* 也许将字段flag创建为原子变量 */
 #include <mutex>
 #include <condition_variable>
 namespace qing {
-    // 用于等待的条件变量类
-    // 对同一个对象进行操作能够阻塞当前线程，或者唤醒被阻塞的线程
-    class Cv_wait {
-    private:
+class Cv_wait {  /* 用于等待的条件变量类，对同一个对象进行操作能够阻塞当前线程，或者唤醒被阻塞的线程 */
+private:
+    std::mutex mtx{};   /* 用于控制条件变量的锁 */
+    std::condition_variable cv{};
+    bool flag = false;  /* 用于解锁条件变量的标志 */
+public:
 
-        // 用于控制条件变量的锁
-        std::mutex mtx{};
+    void Wait()   /* 线程进入等待 */
+    {
+        auto lock = std::unique_lock<std::mutex>(mtx);
+        flag = false;
+        cv.wait(lock, [this] { return flag; });
+    }
 
-        // 条件变量
-        std::condition_variable cv{};
-
-        // 用于解锁条件变量的标志
-        bool flag = false;
-
-    public:
-
-        // 线程进入等待
-        void Wait() {
-            auto lock = std::unique_lock<std::mutex>(mtx);
-            flag = false;
-            cv.wait(lock, [this] { return flag; });
+    void WakeCv() /* 唤醒线程 */
+    {
+        {
+            std::lock_guard<std::mutex> lcok(mtx);
+            flag = true;
         }
+        cv.notify_all();
+    }
 
-        // 唤醒线程
-        void WakeCv() {
-            {
-                std::lock_guard<std::mutex> lcok(mtx);
-                flag = true;
-            }
-            cv.notify_all();
-        }
-    };
+};
 }

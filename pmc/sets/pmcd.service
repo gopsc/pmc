@@ -3,9 +3,8 @@ Description=PMC Http Interfaces
 After=network.target
 
 [Service]
-User=root
-Group=root
+User=qing
+Group=qing
 ExecStart=bash /bot/pmc/pmc/_run.sh
-#Restart=always
 [Install]
 WantedBy=multi-user.target
