@@ -18,14 +18,14 @@ private:
     bool flag = false;  /* 用于解锁条件变量的标志 */
 public:
 
-    void Wait()   /* 线程进入等待 */
+    inline void Wait()   /* 线程进入等待 */
     {
         auto lock = std::unique_lock<std::mutex>(mtx);
         flag = false;
         cv.wait(lock, [this] { return flag; });
     }
 
-    void WakeCv() /* 唤醒线程 */
+    inline void WakeCv() /* 唤醒线程 */
     {
         {
             std::lock_guard<std::mutex> lcok(mtx);
