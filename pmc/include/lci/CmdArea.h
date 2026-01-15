@@ -11,10 +11,10 @@ namespace qing {
  */
 class CmdArea: public Area {
 public:
-	CmdArea(Drawable *d, int w, int h, int x, int y, int rotate, int fontsize);
+	CmdArea(Drawable *d, int w, int h, int x, int y, int rotate =0, int fontsize=18, bool hasBox = false);
 	void Input(char c);
 	void ClearInput();
-	virtual void print(char *utf8, int d);
+	virtual void print(char *utf8, int d=0); /* FIXME: d不知道是什么*/
 	void update_input();
 	void delete_input();
 	void clearBox();
@@ -25,5 +25,6 @@ private:
    	std::mutex lock;
 	std::string input = "";
 	void handle_ansi_code(char *buffer);
+	bool hasBox;
 };
 }

@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Git API 调用工具</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+        .api-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+        .api-section h2 {
+            color: #3498db;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #3498db;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            font-family: monospace;
+        }
+        textarea {
+            min-height: 100px;
+        }
+        button {
+            padding: 12px 24px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .response-container {
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .response-header {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .response-body {
+            padding: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+            font-family: monospace;
+        }
+        .json-viewer {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .copy-btn {
+            width: auto;
+            padding: 5px 10px;
+            font-size: 14px;
+        }
+        .api-info {
+            background-color: #e8f4f8;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        .api-info code {
+            background-color: #e9ecef;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Git API 调用工具</h1>
+        
+        <div class="api-section">
+            <h2>拉取模块内容 (get_module_from_git)</h2>
+            <div class="api-info">
+                <strong>API信息：</strong><br>
+                URL: <code>http://localhost:9200/get_module_from_git</code><br>
+                方法: <code>POST</code><br>
+                请求体: <code>{"git": "Git仓库URL"}</code>
+            </div>
+            
+            <div class="form-group">
+                <label for="git-url-1">Git仓库URL：</label>
+                <input type="text" id="git-url-1" placeholder="输入Git仓库URL (如: https://gitcode.com/qingss0/upd)" value="https://gitcode.com/qingss0/upd">
+            </div>
+            
+            <button id="send-btn-1">发送请求</button>
+            
+            <div class="response-container">
+                <div class="response-header">
+                    <span>响应结果</span>
+                    <button id="copy-btn-1" class="copy-btn">复制</button>
+                </div>
+                <div class="response-body">
+                    <pre class="json-viewer" id="response-1"></pre>
+                </div>
+            </div>
+        </div>
+        
+        <div class="api-section">
+            <h2>分析仓库 (analyze_repository)</h2>
+            <div class="api-info">
+                <strong>API信息：</strong><br>
+                URL: <code>http://localhost:9200/analyze_repository</code><br>
+                方法: <code>POST</code><br>
+                请求体: <code>{"git": "Git仓库URL"}</code>
+            </div>
+            
+            <div class="form-group">
+                <label for="git-url-2">Git仓库URL：</label>
+                <input type="text" id="git-url-2" placeholder="输入Git仓库URL (如: https://gitcode.com/qingss0/upd)" value="https://gitcode.com/qingss0/upd">
+            </div>
+            
+            <button id="send-btn-2">发送请求</button>
+            
+            <div class="response-container">
+                <div class="response-header">
+                    <span>响应结果</span>
+                    <button id="copy-btn-2" class="copy-btn">复制</button>
+                </div>
+                <div class="response-body">
+                    <pre class="json-viewer" id="response-2"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // JWT令牌管理函数
+        class JwtTokenManager {
+            // 获取JWT令牌值
+            static getToken() {
+                const cookies = document.cookie.split(';');
+                for (let cookie of cookies) {
+                    cookie = cookie.trim();
+                    if (cookie.startsWith('jwt_token_value=')) {
+                        return decodeURIComponent(cookie.substring('jwt_token_value='.length));
+                    }
+                }
+                return null;
+            }
+            
+            // 检查是否有有效令牌
+            static hasValidToken() {
+                return this.getToken() !== null;
+            }
+            
+            // 显示令牌状态
+            static showTokenStatus() {
+                const token = this.getToken();
+                if (token) {
+                    console.log('JWT令牌状态: 已登录');
+                    console.log('令牌值:', token.substring(0, 20) + '...');
+                    return true;
+                } else {
+                    console.log('JWT令牌状态: 未登录');
+                    return false;
+                }
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // 第一个API元素
+            const gitUrlInput1 = document.getElementById('git-url-1');
+            const sendButton1 = document.getElementById('send-btn-1');
+            const responseDiv1 = document.getElementById('response-1');
+            const copyButton1 = document.getElementById('copy-btn-1');
+            
+            // 第二个API元素
+            const gitUrlInput2 = document.getElementById('git-url-2');
+            const sendButton2 = document.getElementById('send-btn-2');
+            const responseDiv2 = document.getElementById('response-2');
+            const copyButton2 = document.getElementById('copy-btn-2');
+            
+            // 令牌状态显示元素
+            const tokenStatusDiv = document.createElement('div');
+            tokenStatusDiv.id = 'token-status';
+            tokenStatusDiv.style.marginBottom = '20px';
+            tokenStatusDiv.style.padding = '10px';
+            tokenStatusDiv.style.borderRadius = '4px';
+            tokenStatusDiv.style.fontWeight = 'bold';
+            
+            // 检查令牌状态并更新UI
+            function updateTokenStatus() {
+                const hasToken = JwtTokenManager.hasValidToken();
+                if (hasToken) {
+                    tokenStatusDiv.textContent = '✓ 已登录 - JWT令牌可用';
+                    tokenStatusDiv.style.backgroundColor = '#d4edda';
+                    tokenStatusDiv.style.color = '#155724';
+                    tokenStatusDiv.style.border = '1px solid #c3e6cb';
+                } else {
+                    tokenStatusDiv.textContent = '⚠ 未登录 - 需要JWT令牌才能调用API';
+                    tokenStatusDiv.style.backgroundColor = '#fff3cd';
+                    tokenStatusDiv.style.color = '#856404';
+                    tokenStatusDiv.style.border = '1px solid #ffeaa7';
+                }
+            }
+            
+            // 添加令牌状态显示到页面顶部
+            const container = document.querySelector('.container');
+            container.insertBefore(tokenStatusDiv, container.firstChild);
+            
+            // 初始更新令牌状态
+            updateTokenStatus();
+            
+            // 格式化JSON显示
+            function formatJson(jsonStr) {
+                try {
+                    const parsed = JSON.parse(jsonStr);
+                    return JSON.stringify(parsed, null, 2);
+                } catch (e) {
+                    return jsonStr; // 如果不是有效的JSON，返回原始字符串
+                }
+            }
+            
+            // 发送第一个API请求 (get_module_from_git)
+            async function sendRequest1() {
+                const gitUrl = gitUrlInput1.value.trim();
+                
+                if (!gitUrl) {
+                    responseDiv1.textContent = '错误: 请输入Git仓库URL';
+                    return;
+                }
+                
+                // 检查JWT令牌
+                const token = JwtTokenManager.getToken();
+                if (!token) {
+                    responseDiv1.textContent = '错误: 需要JWT令牌才能调用API。请先登录获取令牌。';
+                    return;
+                }
+                
+                // 显示加载状态
+                sendButton1.textContent = '发送中...';
+                sendButton1.disabled = true;
+                responseDiv1.textContent = '正在发送请求...';
+                
+                try {
+                    const requestBody = {
+                        git: gitUrl
+                    };
+                    
+                    const response = await fetch('http://localhost:9200/get_module_from_git', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+                    
+                    // 处理响应状态
+                    if (response.status === 401) {
+                        const errorData = await response.json();
+                        responseDiv1.textContent = `身份验证错误: ${errorData.error}`;
+                        updateTokenStatus();
+                        return;
+                    }
+                    
+                    // 先读取为文本，再尝试解析JSON
+                    const textData = await response.text();
+                    try {
+                        const jsonData = JSON.parse(textData);
+                        responseDiv1.textContent = formatJson(JSON.stringify(jsonData));
+                    } catch (e) {
+                        responseDiv1.textContent = textData;
+                    }
+                    
+                } catch (error) {
+                    responseDiv1.textContent = `错误: ${error.message}`;
+                } finally {
+                    sendButton1.textContent = '发送请求';
+                    sendButton1.disabled = false;
+                }
+            }
+            
+            // 发送第二个API请求 (analyze_repository)
+            async function sendRequest2() {
+                const gitUrl = gitUrlInput2.value.trim();
+                
+                if (!gitUrl) {
+                    responseDiv2.textContent = '错误: 请输入Git仓库URL';
+                    return;
+                }
+                
+                // 检查JWT令牌
+                const token = JwtTokenManager.getToken();
+                if (!token) {
+                    responseDiv2.textContent = '错误: 需要JWT令牌才能调用API。请先登录获取令牌。';
+                    return;
+                }
+                
+                // 显示加载状态
+                sendButton2.textContent = '发送中...';
+                sendButton2.disabled = true;
+                responseDiv2.textContent = '正在发送请求...';
+                
+                try {
+                    const requestBody = {
+                        git: gitUrl
+                    };
+                    
+                    const response = await fetch('http://localhost:9200/analyze_repository', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+                    
+                    // 处理响应状态
+                    if (response.status === 401) {
+                        const errorData = await response.json();
+                        responseDiv2.textContent = `身份验证错误: ${errorData.error}`;
+                        updateTokenStatus();
+                        return;
+                    }
+                    
+                    // 先读取为文本，再尝试解析JSON
+                    const textData = await response.text();
+                    try {
+                        const jsonData = JSON.parse(textData);
+                        responseDiv2.textContent = formatJson(JSON.stringify(jsonData));
+                    } catch (e) {
+                        responseDiv2.textContent = textData;
+                    }
+                    
+                } catch (error) {
+                    responseDiv2.textContent = `错误: ${error.message}`;
+                } finally {
+                    sendButton2.textContent = '发送请求';
+                    sendButton2.disabled = false;
+                }
+            }
+            
+            // 复制响应内容
+            function copyResponse(responseDiv, copyButton) {
+                const text = responseDiv.textContent;
+                navigator.clipboard.writeText(text).then(() => {
+                    const originalText = copyButton.textContent;
+                    copyButton.textContent = '已复制!';
+                    setTimeout(() => {
+                        copyButton.textContent = originalText;
+                    }, 2000);
+                }).catch(err => {
+                    console.error('复制失败:', err);
+                });
+            }
+            
+            // 事件监听
+            sendButton1.addEventListener('click', sendRequest1);
+            sendButton2.addEventListener('click', sendRequest2);
+            
+            copyButton1.addEventListener('click', () => copyResponse(responseDiv1, copyButton1));
+            copyButton2.addEventListener('click', () => copyResponse(responseDiv2, copyButton2));
+            
+            // 支持回车键发送
+            gitUrlInput1.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendRequest1();
+                }
+            });
+            
+            gitUrlInput2.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendRequest2();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

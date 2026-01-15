@@ -16,7 +16,7 @@ CPP:= g++
 
 INCS:= -I include/
 
-LIBS := -lpthread -lssl -lcrypto -lcpp-httplib
+LIBS := -lpthread -lssl -lcrypto -lcpp-httplib -ljpeg
 
 CPPFLAGS := --std=c++20 -O3 -pipe #-Wall -Werror
 
@@ -24,7 +24,7 @@ BUILD_DIR = build
 $(shell mkdir -p $(BUILD_DIR))
 
 #-----------
-$(APP_NAME): $(BUILD_DIR)/main.o $(BUILD_DIR)/ansi.o $(BUILD_DIR)/utf8.o $(BUILD_DIR)/fsm.o $(BUILD_DIR)/Color.o $(BUILD_DIR)/ku500.o $(BUILD_DIR)/CommonThread.o $(BUILD_DIR)/Drawable.o $(BUILD_DIR)/Area.o $(BUILD_DIR)/CmdArea.o $(BUILD_DIR)/InputBox.o $(BUILD_DIR)/KeyboardEvent.o $(BUILD_DIR)/FrameBuf.o
+$(APP_NAME): $(BUILD_DIR)/main.o $(BUILD_DIR)/ansi.o $(BUILD_DIR)/utf8.o $(BUILD_DIR)/fsm.o $(BUILD_DIR)/Color.o $(BUILD_DIR)/ku500.o $(BUILD_DIR)/CommonThread.o $(BUILD_DIR)/Drawable.o $(BUILD_DIR)/Area.o $(BUILD_DIR)/CmdArea.o $(BUILD_DIR)/InputBox.o $(BUILD_DIR)/KeyboardEvent.o $(BUILD_DIR)/FrameBuf.o $(BUILD_DIR)/I2C.o $(BUILD_DIR)/PCA9685.o $(BUILD_DIR)/MPU6050.o $(BUILD_DIR)/Camera.o
 	$(CPP) $^ $(LIBS) -o $@
 
 $(BUILD_DIR)/main.o:  src/main.cpp
@@ -65,6 +65,19 @@ $(BUILD_DIR)/KeyboardEvent.o:  src/lci/KeyboardEvent.cpp
 
 $(BUILD_DIR)/FrameBuf.o:  src/lci/FrameBuf.cpp
 	$(CPP) $(CPPFLAGS) -c $^ $(INCS) -o $@
+
+$(BUILD_DIR)/I2C.o:  src/hd/I2C.cpp
+	$(CPP) $(CPPFLAGS) -c $^ $(INCS) -o $@
+
+$(BUILD_DIR)/PCA9685.o:  src/hd/PCA9685.cpp
+	$(CPP) $(CPPFLAGS) -c $^ $(INCS) -o $@
+
+$(BUILD_DIR)/MPU6050.o:  src/hd/MPU6050.cpp
+	$(CPP) $(CPPFLAGS) -c $^ $(INCS) -o $@
+
+$(BUILD_DIR)/Camera.o:  src/hd/Camera.cpp
+	$(CPP) $(CPPFLAGS) -c $^ $(INCS) -o $@
+
 
 
 install: $(APP_NAME)

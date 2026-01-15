@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include "lci/CommonThread.h"
 namespace qing {
-
+namespace lci{
 	void CommonThread::thread_main() {
            
 		while (chk() != SSHUT) {
@@ -98,4 +98,5 @@ namespace qing {
     }
     void CommonThread::ClearEvent() {
     }
+}//lci
 }

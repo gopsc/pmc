@@ -2,7 +2,7 @@
 #include<mutex>
 #include<condition_variable>
 namespace qing{
-
+namespace lci{
 	//用来存储状态的枚举类型
 	enum Stat{
 	    SSHUT = -1,
@@ -33,5 +33,5 @@ namespace qing{
 	    //存放状态机的状态
 	    enum Stat stat;
 	};//StateMachine	
-
+}//lci
 }//qing

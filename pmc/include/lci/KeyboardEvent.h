@@ -3,7 +3,7 @@
 #include <string>
 #include <map>
 #include <linux/input.h>
-#define MAX 64 /* FIXME: 这个是不是没用了 */
+//#define MAX 64 /* FIXME: 这个是不是没用了 */
 namespace qing {
 class KeyboardEvent{
 public:

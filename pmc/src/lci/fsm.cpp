@@ -1,7 +1,7 @@
 
 #include"lci/fsm.h"
 namespace qing{
-	
+namespace lci{
     Fsm::Fsm(){
         this->stat = SSTOP;
     }
@@ -41,5 +41,5 @@ namespace qing{
         this->stat = SRUNNING;
         cv.notify_one();
     }//run
-	
+}//lci	
 }//qing

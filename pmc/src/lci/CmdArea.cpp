@@ -5,11 +5,15 @@
 #include "lci/ansi.h"
 constexpr static auto H = 2;
 namespace qing {
-
-	CmdArea::CmdArea(Drawable *d, int w, int h, int x, int y, int rotate = 0, int fontsize=18): Area(d, w, h, x, y, rotate, fontsize) {
-		auto w_std = w - 2 * x;
-		auto w_tar = 16 * fontsize;
-		area = std::make_unique<InputBox>(this, (w_tar < w_std) ? w_tar :  w_std, H*fontsize, x, fontsize*2, rotate, fontsize);
+	/* FIXME(20260113): 将输入框做成大部分时候和输入行在同一行 */
+	CmdArea::CmdArea(Drawable *d, int w, int h, int x, int y, int rotate, int fontsize, bool hasBox)
+	: Area(d, w, h, x, y, rotate, fontsize), hasBox(hasBox)	{
+		//auto w_std = w - 2 * x;
+		auto w_std = 5 * fontsize;
+		auto w_tar = 5 * fontsize;
+		if (hasBox) {
+			area = std::make_unique<InputBox>(this, (w_tar < w_std) ? w_tar :  w_std, H*fontsize, x, fontsize*2, rotate, fontsize);
+		}
 	}
 
 	void CmdArea::Input(char c) {
@@ -24,14 +28,17 @@ namespace qing {
 
 	void CmdArea::update_input() {
         	std::unique_lock<std::mutex> lck(this->lock);
-		area->print((char*)this->input.c_str(), 0);
+		if (hasBox)
+			area->print((char*)this->input.c_str(), 0);
 	}
 
 	void CmdArea::clearBox() {
         	std::unique_lock<std::mutex> lck(this->lock);
 		auto clr = black;
-		auto size = area->get_size();
-		area->rectangle_fill(0, 0, size.w-1, size.h, clr);
+		if (hasBox){
+			auto size = area->get_size();
+			area->rectangle_fill(0, 0, size.w-1, size.h, clr);
+		}
 	}
 
 	void CmdArea::delete_input() {
@@ -47,17 +54,17 @@ namespace qing {
 		return cur;
 	}
 
-	void CmdArea::print(char *utf8, int d = 0) {
+	void CmdArea::print(char *utf8, int d) {
 
-		auto subpos = area->get_pos();
-		auto subsize = area->get_size();
 		auto color = black;
 		auto fontsize = FontSize_get();
 		auto half_f = fontsize / 2;
-
 		this->lock.lock();
-		rectangle_fill(subpos.w-1, subpos.h-1, subsize.w+2, subsize.h+2, color);
 
+		auto subpos =(hasBox) ? area->get_pos() : Rectangle{0, 0};
+		auto subsize = (hasBox) ? area->get_size() : Rectangle{0, 0};
+		if (hasBox)
+			rectangle_fill(subpos.w-1, subpos.h-1, subsize.w+2, subsize.h+2, color);
 		char *ansi = utf8::to_ansi(utf8);
 		char *p = ansi;
 		Rectangle l = get_size();
@@ -160,12 +167,14 @@ namespace qing {
 
 		}
 		free(ansi);
-		subpos.w = ((x_f + fontsize + subsize.w) > l.w - fontsize) ? l.w - fontsize - subsize.w : x_f + fontsize;
-		subpos.h = y_f + fontsize;
-		area->set_pos(subpos);
-		this->lock.unlock();
-		this->update_input();
-		flush(area.get(), true);
+		if (hasBox) {
+			subpos.w = ((x_f + fontsize + subsize.w) > l.w - fontsize) ? l.w - fontsize - subsize.w : x_f + fontsize;
+			subpos.h = y_f + fontsize;
+			area->set_pos(subpos);
+			this->lock.unlock();
+			this->update_input();
+			flush(area.get(), true);
+		}
 	}
 
 	void CmdArea::handle_ansi_code(char *buffer) {

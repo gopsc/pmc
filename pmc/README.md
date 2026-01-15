@@ -13,6 +13,7 @@ sudo apt install git g++ cmake
 sudo apt install nlohmann-json3-dev
 sudo apt install libboost-dev
 sudo apt install libssl-dev
+sudo apt install cimg-dev
 
 2. 创建项目
 mkdir bot

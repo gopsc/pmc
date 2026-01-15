@@ -1,0 +1,9 @@
+Flask
+flask_cors
+waitress
+cryptography
+GitPython
+paramiko
+setuptools
+jwt
+#../../_pmc

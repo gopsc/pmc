@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JWT令牌获取工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input[type="file"] {
+            display: block;
+            margin-bottom: 10px;
+        }
+        .form-group textarea {
+            width: 100%;
+            height: 150px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .status.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        .steps {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .step {
+            margin-bottom: 10px;
+            padding: 5px 0;
+        }
+        .step.completed {
+            color: #4CAF50;
+        }
+        .step.completed::before {
+            content: "✓ ";
+            font-weight: bold;
+        }
+        .step.current {
+            font-weight: bold;
+            color: #0066cc;
+        }
+        .token-display {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .token-display h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .token-display pre {
+            background-color: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .copy-btn {
+            background-color: #2196F3;
+            margin-left: 10px;
+        }
+        .copy-btn:hover {
+            background-color: #0b7dda;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>JWT令牌获取工具</h1>
+        
+        <div class="steps">
+            <div class="step" id="step1">1. 选择RSA私钥文件</div>
+            <div class="step" id="step2">2. 获取加密的AES密钥</div>
+            <div class="step" id="step3">3. 解密AES密钥</div>
+            <div class="step" id="step4">4. 加密登录请求数据</div>
+            <div class="step" id="step5">5. 获取JWT令牌</div>
+        </div>
+        
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="privateKeyFile">RSA私钥文件 (.pem):</label>
+                <input type="file" id="privateKeyFile" accept=".pem" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="status">状态信息:</label>
+                <textarea id="status" readonly placeholder="状态信息将显示在这里..."></textarea>
+            </div>
+            
+            <button type="button" id="getTokenBtn">获取JWT令牌</button>
+            <button type="button" id="copyTokenBtn" class="copy-btn" style="display: none;">复制令牌</button>
+        </form>
+        
+        <div class="status" id="result"></div>
+        
+        <div class="token-display" id="tokenDisplay" style="display: none;">
+            <h3>JWT令牌信息</h3>
+            <div><strong>令牌类型:</strong> <span id="tokenType"></span></div>
+            <div><strong>过期时间:</strong> <span id="expiresIn"></span></div>
+            <div>
+                <strong>JWT令牌:</strong>
+                <pre id="jwtToken"></pre>
+            </div>
+            <div>
+                <strong>令牌详情:</strong>
+                <pre id="tokenDetails"></pre>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Web Crypto API辅助函数
+        class CryptoHelper {
+            // 检查Web Crypto API是否可用
+            static isCryptoAvailable() {
+                if (!window.crypto) {
+                    throw new Error('此浏览器不支持Web Crypto API');
+                }
+                if (!window.crypto.subtle) {
+                    throw new Error('Web Crypto API subtle操作不可用。可能是由于不安全的连接（非HTTPS）或浏览器限制。');
+                }
+                return true;
+            }
+            
+            static async importRsaPrivateKey(pem) {
+                // 检查Web Crypto API是否可用
+                this.isCryptoAvailable();
+                
+                // 1. 检查PEM头部类型
+                let pemHeader, pemFooter, keyFormat;
+                if (pem.includes("-----BEGIN RSA PRIVATE KEY-----")) {
+                    pemHeader = "-----BEGIN RSA PRIVATE KEY-----";
+                    pemFooter = "-----END RSA PRIVATE KEY-----";
+                    keyFormat = "pkcs1";
+                    updateStatus('  ✓ 检测到PKCS#1私钥格式');
+                } else if (pem.includes("-----BEGIN PRIVATE KEY-----")) {
+                    pemHeader = "-----BEGIN PRIVATE KEY-----";
+                    pemFooter = "-----END PRIVATE KEY-----";
+                    keyFormat = "pkcs8";
+                    updateStatus('  ✓ 检测到PKCS#8私钥格式');
+                } else {
+                    throw new Error("无效的PEM格式：未知头部");
+                }
+                
+                // 2. 提取并清理PEM内容
+                const headerIndex = pem.indexOf(pemHeader);
+                const footerIndex = pem.indexOf(pemFooter);
+                
+                if (headerIndex === -1 || footerIndex === -1) {
+                    throw new Error("无效的PEM格式：缺少头部或尾部");
+                }
+                
+                let pemContents = pem.slice(headerIndex + pemHeader.length, footerIndex);
+                pemContents = pemContents.replace(/\s+/g, ""); // 移除所有空白字符
+                
+                updateStatus('  PEM内容长度: ' + pemContents.length);
+                
+                // 3. 确保base64格式正确
+                pemContents = pemContents.replace(/-/g, '+').replace(/_/g, '/');
+                const padding = (4 - pemContents.length % 4) % 4;
+                if (padding > 0) {
+                    pemContents += "=".repeat(padding);
+                }
+                
+                // 4. 解码并转换为ArrayBuffer
+                const binaryString = window.atob(pemContents);
+                updateStatus('  ✓ 成功使用atob解码PEM');
+                updateStatus('  二进制字符串长度: ' + binaryString.length);
+                
+                const binaryDer = this.stringToArrayBuffer(binaryString);
+                
+                // 5. 导入私钥
+                const algorithm = {
+                    name: "RSA-OAEP",
+                    hash: {
+                        name: "SHA-256"
+                    }
+                };
+                
+                // 对于PKCS#1格式，使用RSA-OAEP-256算法
+                if (keyFormat === "pkcs1") {
+                    algorithm.name = "RSA-OAEP-256";
+                    updateStatus('  使用RSA-OAEP-256算法处理PKCS#1密钥');
+                }
+                
+                updateStatus(`  使用${keyFormat}格式导入私钥...`);
+                
+                try {
+                    return await window.crypto.subtle.importKey(
+                        keyFormat,
+                        binaryDer,
+                        algorithm,
+                        false,
+                        ["decrypt"]
+                    );
+                } catch (e) {
+                    updateStatus('  ✗ 第一次导入尝试失败: ' + (e.message || '未知错误'));
+                    
+                    // 尝试使用标准RSA-OAEP算法再次导入
+                    algorithm.name = "RSA-OAEP";
+                    updateStatus('  使用标准RSA-OAEP算法重试...');
+                    
+                    return await window.crypto.subtle.importKey(
+                        keyFormat,
+                        binaryDer,
+                        algorithm,
+                        false,
+                        ["decrypt"]
+                    );
+                }
+            }
+            
+            static stringToArrayBuffer(str) {
+                const buf = new ArrayBuffer(str.length);
+                const bufView = new Uint8Array(buf);
+                for (let i = 0; i < str.length; i++) {
+                    bufView[i] = str.charCodeAt(i);
+                }
+                return buf;
+            }
+            
+            static async decryptRsa(privateKey, encryptedData) {
+                try {
+                    const decryptParams = {
+                        name: "RSA-OAEP",
+                        hash: {
+                            name: "SHA-256"
+                        },
+                        mgf: {
+                            name: "MGF1",
+                            hash: {
+                                name: "SHA-256"
+                            }
+                        }
+                    };
+                    
+                    return await window.crypto.subtle.decrypt(
+                        decryptParams,
+                        privateKey,
+                        encryptedData
+                    );
+                } catch (e) {
+                    updateStatus('  ✗ RSA解密失败: ' + (e.message || '未知错误'));
+                    
+                    // 尝试使用更简单的参数
+                    try {
+                        updateStatus('  尝试使用简化参数...');
+                        return await window.crypto.subtle.decrypt(
+                            {
+                                name: "RSA-OAEP"
+                            },
+                            privateKey,
+                            encryptedData
+                        );
+                    } catch (e2) {
+                        updateStatus('  ✗ 简化参数也失败: ' + (e2.message || '未知错误'));
+                        throw e;
+                    }
+                }
+            }
+            
+            static async encryptAes(key, iv, data) {
+                // 使用AES-GCM算法
+                const cipher = await window.crypto.subtle.encrypt(
+                    {
+                        name: "AES-GCM",
+                        iv: iv,
+                        tagLength: 128
+                    },
+                    key,
+                    data
+                );
+                return cipher;
+            }
+            
+            static async importAesKey(rawKey) {
+                return await window.crypto.subtle.importKey(
+                    "raw",
+                    rawKey,
+                    {
+                        name: "AES-GCM",
+                        length: rawKey.length * 8
+                    },
+                    false,
+                    ["encrypt"]
+                );
+            }
+            
+            static base64ToUint8Array(base64) {
+                // 确保base64字符串格式正确
+                base64 = base64.replace(/-/g, '+').replace(/_/g, '/');
+                const padding = (4 - base64.length % 4) % 4;
+                if (padding > 0) {
+                    base64 += '='.repeat(padding);
+                }
+                
+                // 使用浏览器内置的atob函数解码
+                const binaryString = window.atob(base64);
+                updateStatus('  ✓ 成功使用atob解码base64');
+                updateStatus('  二进制字符串长度: ' + binaryString.length);
+                
+                // 转换为Uint8Array
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                return bytes;
+            }
+        }
+        
+        // 状态更新函数
+        function updateStatus(message) {
+            const statusTextarea = document.getElementById('status');
+            statusTextarea.value += message + '\n';
+            statusTextarea.scrollTop = statusTextarea.scrollHeight;
+        }
+        
+        // 步骤更新函数
+        function updateStep(stepNumber, status) {
+            const stepElement = document.getElementById(`step${stepNumber}`);
+            if (status === 'completed') {
+                stepElement.classList.add('completed');
+                stepElement.classList.remove('current');
+            } else if (status === 'current') {
+                stepElement.classList.add('current');
+            }
+        }
+        
+        // 结果更新函数
+        function updateResult(message, type = 'info') {
+            const resultElement = document.getElementById('result');
+            resultElement.textContent = message;
+            resultElement.className = `status ${type}`;
+        }
+        
+        // 令牌管理函数
+        class TokenManager {
+            // 存储令牌到cookie
+            static setToken(tokenData) {
+                const expires = new Date();
+                expires.setTime(expires.getTime() + (23 * 60 * 60 * 1000)); // 23小时过期（比令牌短1小时）
+                
+                // 存储完整的令牌数据
+                document.cookie = `jwt_token=${encodeURIComponent(JSON.stringify(tokenData))}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
+                
+                // 单独存储令牌值，方便其他页面使用
+                document.cookie = `jwt_token_value=${encodeURIComponent(tokenData.token)}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
+                
+                // 存储令牌类型
+                document.cookie = `jwt_token_type=${encodeURIComponent(tokenData.token_type)}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
+                
+                // 存储过期时间
+                document.cookie = `jwt_expires_in=${encodeURIComponent(tokenData.expires_in)}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
+            }
+            
+            // 从cookie获取令牌
+            static getToken() {
+                const cookies = document.cookie.split(';');
+                for (let cookie of cookies) {
+                    cookie = cookie.trim();
+                    if (cookie.startsWith('jwt_token=')) {
+                        try {
+                            return JSON.parse(decodeURIComponent(cookie.substring('jwt_token='.length)));
+                        } catch (e) {
+                            console.error('解析令牌数据失败:', e);
+                            return null;
+                        }
+                    }
+                }
+                return null;
+            }
+            
+            // 获取令牌值
+            static getTokenValue() {
+                const cookies = document.cookie.split(';');
+                for (let cookie of cookies) {
+                    cookie = cookie.trim();
+                    if (cookie.startsWith('jwt_token_value=')) {
+                        return decodeURIComponent(cookie.substring('jwt_token_value='.length));
+                    }
+                }
+                return null;
+            }
+            
+            // 检查是否有有效令牌
+            static hasValidToken() {
+                return this.getToken() !== null;
+            }
+            
+            // 删除令牌
+            static clearToken() {
+                const pastDate = new Date(0).toUTCString();
+                const cookies = ['jwt_token', 'jwt_token_value', 'jwt_token_type', 'jwt_expires_in'];
+                
+                cookies.forEach(cookieName => {
+                    document.cookie = `${cookieName}=; expires=${pastDate}; path=/`;
+                });
+            }
+        }
+        
+        // 令牌显示函数
+        function updateTokenDisplay(tokenData) {
+            const tokenDisplay = document.getElementById('tokenDisplay');
+            const tokenType = document.getElementById('tokenType');
+            const expiresIn = document.getElementById('expiresIn');
+            const jwtToken = document.getElementById('jwtToken');
+            const tokenDetails = document.getElementById('tokenDetails');
+            const copyTokenBtn = document.getElementById('copyTokenBtn');
+            
+            tokenType.textContent = tokenData.token_type;
+            expiresIn.textContent = tokenData.expires_in;
+            jwtToken.textContent = tokenData.token;
+            tokenDetails.textContent = JSON.stringify(tokenData, null, 2);
+            
+            tokenDisplay.style.display = 'block';
+            copyTokenBtn.style.display = 'inline-block';
+            
+            // 存储令牌到cookie
+            TokenManager.setToken(tokenData);
+            updateStatus('✓ JWT令牌已存储到cookie，可在同一浏览器的其他页面使用');
+        }
+        
+        // JWT令牌获取函数
+        async function getJwtToken() {
+            updateResult('开始JWT令牌获取过程...', 'info');
+            updateStatus('开始JWT令牌获取过程...');
+            
+            // 步骤1: 获取RSA私钥
+            updateStep(1, 'current');
+            const privateKeyFile = document.getElementById('privateKeyFile').files[0];
+            if (!privateKeyFile) {
+                updateResult('请选择RSA私钥文件', 'error');
+                return;
+            }
+            
+            const privateKeyReader = new FileReader();
+            const privateKeyPem = await new Promise((resolve, reject) => {
+                privateKeyReader.onload = (e) => resolve(e.target.result);
+                privateKeyReader.onerror = () => reject(new Error('读取私钥文件失败'));
+                privateKeyReader.readAsText(privateKeyFile);
+            });
+            updateStatus('✓ RSA私钥加载成功');
+            updateStep(1, 'completed');
+            
+            // 步骤2: 获取加密的AES密钥
+            updateStep(2, 'current');
+            updateStatus('从服务器请求加密的AES密钥...');
+            
+            let encryptedAesKeyResponse;
+            try {
+                encryptedAesKeyResponse = await fetch('/get-encrypted-aes-key');
+                if (!encryptedAesKeyResponse.ok) {
+                    throw new Error('获取加密AES密钥失败: ' + encryptedAesKeyResponse.statusText);
+                }
+            } catch (error) {
+                updateResult('获取加密AES密钥失败: ' + error.message, 'error');
+                updateStatus('✗ 获取加密AES密钥失败: ' + error.message);
+                return;
+            }
+            
+            const encryptedAesKeyData = await encryptedAesKeyResponse.json();
+            const encryptedAesKeyBase64 = encryptedAesKeyData.encrypted_aes_key;
+            updateStatus('✓ 加密的AES密钥接收成功');
+            updateStep(2, 'completed');
+            
+            // 步骤3: 使用RSA私钥解密AES密钥
+            updateStep(3, 'current');
+            updateStatus('使用RSA私钥解密AES密钥...');
+            
+            let privateKey, aesKey;
+            try {
+                // 导入RSA私钥
+                privateKey = await CryptoHelper.importRsaPrivateKey(privateKeyPem);
+                updateStatus('✓ RSA私钥导入成功');
+                
+                // 将base64编码的加密AES密钥转换为ArrayBuffer
+                const encryptedAesKeyBytes = CryptoHelper.base64ToUint8Array(encryptedAesKeyBase64);
+                const encryptedAesKeyBuffer = encryptedAesKeyBytes.buffer;
+                
+                // 解密AES密钥
+                const decryptedAesKeyBuffer = await CryptoHelper.decryptRsa(privateKey, encryptedAesKeyBuffer);
+                
+                // 将解密后的AES密钥转换为Uint8Array
+                aesKey = new Uint8Array(decryptedAesKeyBuffer);
+                updateStatus('✓ AES密钥解密成功');
+                updateStatus('  AES密钥长度: ' + aesKey.length + '字节');
+                updateStep(3, 'completed');
+            } catch (error) {
+                updateResult('AES密钥解密失败: ' + error.message, 'error');
+                updateStatus('✗ AES密钥解密失败: ' + error.message);
+                return;
+            }
+            
+            // 步骤4: 加密登录请求数据
+            updateStep(4, 'current');
+            updateStatus('加密登录请求数据...');
+            
+            let encryptedData;
+            try {
+                // 准备登录请求数据
+                const loginData = {
+                    "i-wanna-login": true
+                };
+                const loginDataStr = JSON.stringify(loginData);
+                updateStatus('  登录请求数据: ' + loginDataStr);
+                
+                // 将数据转换为Uint8Array
+                const encoder = new TextEncoder();
+                const loginDataBytes = encoder.encode(loginDataStr);
+                
+                // 生成随机IV（初始化向量）
+                const iv = window.crypto.getRandomValues(new Uint8Array(16));
+                
+                // 导入AES密钥
+                const aesKeyObj = await CryptoHelper.importAesKey(aesKey);
+                
+                // 使用AES-GCM加密数据
+                const encryptedBuffer = await CryptoHelper.encryptAes(aesKeyObj, iv, loginDataBytes);
+                
+                // 组合IV + 加密数据 + GCM标签
+                const encryptedArray = new Uint8Array(encryptedBuffer);
+                const combinedData = new Uint8Array(iv.length + encryptedArray.length);
+                combinedData.set(iv, 0); // 前16字节是IV
+                combinedData.set(encryptedArray, iv.length); // 后面是加密数据（包含GCM标签）
+                
+                encryptedData = combinedData;
+                updateStatus('✓ 登录请求数据加密成功');
+                updateStatus('  加密数据长度: ' + encryptedData.length + '字节');
+                updateStep(4, 'completed');
+            } catch (error) {
+                updateResult('数据加密失败: ' + error.message, 'error');
+                updateStatus('✗ 数据加密失败: ' + error.message);
+                return;
+            }
+            
+            // 步骤5: 获取JWT令牌
+            updateStep(5, 'current');
+            updateStatus('发送加密请求获取JWT令牌...');
+            
+            try {
+                // 创建FormData对象
+                const formData = new FormData();
+                
+                // 将加密数据转换为Blob
+                const encryptedBlob = new Blob([encryptedData], { type: 'application/octet-stream' });
+                formData.append('encrypted_data', encryptedBlob, 'login_request.bin');
+                
+                // 发送POST请求
+                const response = await fetch('/get_jwt_token', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || '获取JWT令牌失败: ' + response.statusText);
+                }
+                
+                const tokenData = await response.json();
+                updateStatus('✓ JWT令牌获取成功');
+                updateStep(5, 'completed');
+                
+                // 显示令牌信息
+                updateTokenDisplay(tokenData);
+                updateResult('JWT令牌获取成功！', 'success');
+                
+            } catch (error) {
+                updateResult('获取JWT令牌失败: ' + error.message, 'error');
+                updateStatus('✗ 获取JWT令牌失败: ' + error.message);
+            }
+        }
+        
+        // 复制令牌函数
+        function copyToken() {
+            const tokenElement = document.getElementById('jwtToken');
+            const tokenText = tokenElement.textContent;
+            
+            navigator.clipboard.writeText(tokenText).then(() => {
+                updateResult('令牌已复制到剪贴板', 'success');
+            }).catch(err => {
+                updateResult('复制失败: ' + err.message, 'error');
+            });
+        }
+        
+        // 检查现有令牌
+        function checkExistingToken() {
+            const existingToken = TokenManager.getToken();
+            if (existingToken) {
+                updateResult('检测到现有的JWT令牌', 'info');
+                updateStatus('✓ 检测到现有的JWT令牌');
+                updateStatus(`  令牌类型: ${existingToken.token_type}`);
+                updateStatus(`  过期时间: ${existingToken.expires_in}`);
+                updateStatus('  令牌已存储在cookie中，可在同一浏览器的其他页面使用');
+                
+                // 显示令牌信息
+                updateTokenDisplay(existingToken);
+                
+                // 添加清除令牌按钮
+                const clearTokenBtn = document.createElement('button');
+                clearTokenBtn.textContent = '清除令牌';
+                clearTokenBtn.className = 'clear-btn';
+                clearTokenBtn.style.backgroundColor = '#f44336';
+                clearTokenBtn.style.marginLeft = '10px';
+                clearTokenBtn.onclick = function() {
+                    TokenManager.clearToken();
+                    updateResult('令牌已清除', 'info');
+                    updateStatus('✓ JWT令牌已从cookie中清除');
+                    document.getElementById('tokenDisplay').style.display = 'none';
+                    document.getElementById('copyTokenBtn').style.display = 'none';
+                    clearTokenBtn.remove();
+                };
+                document.getElementById('copyTokenBtn').parentNode.insertBefore(clearTokenBtn, document.getElementById('copyTokenBtn').nextSibling);
+            } else {
+                updateStatus('未检测到现有的JWT令牌，请获取新令牌');
+            }
+        }
+        
+        // 事件监听器
+        document.getElementById('getTokenBtn').addEventListener('click', getJwtToken);
+        document.getElementById('copyTokenBtn').addEventListener('click', copyToken);
+        
+        // 文件选择事件
+        document.getElementById('privateKeyFile').addEventListener('change', function() {
+            if (this.files.length > 0) {
+                updateStatus('已选择私钥文件: ' + this.files[0].name);
+            }
+        });
+        
+        // 页面加载时检查现有令牌
+        document.addEventListener('DOMContentLoaded', function() {
+            updateStatus('页面加载完成，正在检查现有令牌...');
+            checkExistingToken();
+        });
+    </script>
+</body>
+</html>

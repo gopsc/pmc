@@ -15,12 +15,13 @@ stop，setup，loop，clean函数中填入每个状态下的执行代码。
 */
 
 namespace qing {
+namespace lci{
     //线程的主函数
 //-----------------------------------------------------------
 /*通常情况下，线程的主函数。*/
 
     //前向声明脚本类型
-    class CommonThread: public Fsm, ThreadInterface {
+    class CommonThread: public lci::Fsm, ThreadInterface {
         //一个持有资源线程的状态机类型        
         public:  
             //构造函数.
@@ -58,4 +59,5 @@ namespace qing {
                 //用来存放该子线程的标识符。
                 std::thread *thread = NULL;
             };
+}
 }
