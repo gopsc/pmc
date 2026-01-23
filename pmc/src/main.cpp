@@ -1,25 +1,22 @@
 /*
  *  并发机器（进程托管）
+ *  
+ *  FIXME: 尽量使用大众的库（boost）
  */
 #include <filesystem>
 #include <string> 
 #include <vector>
 #include <csignal> /* 注册信号以优雅退出 */
 #include <functional>
-#include <args.hxx> /* 处理命令行参数的包 */
-#include <nlohmann/json.hpp>  /* 进行json的处理 */
-#include "Config.hpp" /* 读取配置 */
-//#include "Serial.hpp" /* 与串口设备进行联络（暂时不用）*/ 
-#include "Http.hpp"
-#include "Logger.hpp"
-#include "Thread.hpp" /* 可控线程类 */
-//#include "ProcessList.hpp"
-//#include "ThreadList.hpp"
-#include "Cv_wait.hpp" /* 通过条件变量进行等待 */
-#include "Modules.hpp" /* 管理子系统模块 */
-#include "PmcTask.hpp"
-#include "LciTask.hpp"
-#include "ParserServerTask.hpp"
+#include <boost/program_options.hpp>
+#include "net/Http.hpp"
+#include "logs/Logger.hpp"
+#include "th/Thread.hpp" /* 可控线程类 */
+#include "th/Cv_wait.hpp" /* 通过条件变量进行等待 */
+#include "pmc/Modules.hpp" /* 管理子系统模块 */
+#include "pmc/PmcTask.hpp"
+#include "pmc/LciTask.hpp"
+#include "pmc/ParserTask.hpp"
 
 /* lci 临时 */
 #include "lci/p_th.h"
@@ -28,8 +25,10 @@
 #include "cn/中文化.hpp"
 /*-------------------------------------------------------------------------*/
 /*-------------------------------------------------------------------------*/
+namespace po = boost::program_options;
 
-
+/* 版本号 */
+static const char *PMC_VERSION = "0.3.x";
 /* 条件变量的等待机制让主程序能够等待中断信号的产生 */
 qing::Cv_wait cv =  qing::Cv_wait();
 
@@ -82,6 +81,8 @@ void set_signal_action() {
 
 /*-------------------------------------------------------------------------*/
 /*-------------------------------------------------------------------------*/
+int pmc_init(po::variables_map&);
+
 /* 入口函数 */
 int main(int argc, char** argv) {
 
@@ -91,104 +92,141 @@ int main(int argc, char** argv) {
 
     /*------------------------------*/
     /* 解析命令行参数 */
-    
-    args::ArgumentParser parser("这是一个脚本托管服务。", "请使用专门的管理程序进行操作。");
-    args::HelpFlag help(parser, "HELP", "显示帮助信息", {'h', "help"});
-    args::Flag rsaGen(parser, "RSA GEN", "生成RSA密钥", {'g', "rsa"});
-    args::Flag pmcFlag(parser, "run-Pmc-Task", "启动pmc服务", {"pmc"});
-    args::Flag lciFlag(parser, "run-Lci-Tast", "启动lci服务", {"lci"});
-    args::Flag mybotFlag(parser, "mybot-parser-Task", "启动mybot模块", {"mybot"});
-    /***************************/
-    args::ValueFlag<std::string> sys(parser, "SUBSYSTEM", "输入自启动脚本的地址", {'s', "sys"});
-    args::ValueFlag<std::string> key(parser, "KEY_PATH", "输入公钥的地址", {'k', "key"});
-    args::ValueFlag<std::string> addr(parser, "ADDRESS", "输入pmc监听地址", {'a', "addr"});
-    args::ValueFlag<int> port(parser, "PORT", "输入pmc监听端口", {'p', "port"});
-    /***************************/
-    args::ValueFlag<int> rotate(parser, "ROTATE", "输入旋转模式（0~3）", {'r', "rotate"}, 0);
-    args::ValueFlag<int> fontsize(parser, "FONTSIZE", "输入字号大小", {'f', "fontsize"}, 18);
-    args::ValueFlag<std::string> exec(parser, "EXEC_CMD", "输入运行的命令", {'e', "exec"});
+    po::options_description desc("pmc subsystem start options");
+    desc.add_options()  /* 定义选项 */
+	("help,h",    "display help message")
+	("version,v", "display version message")
+	("pmc",       "run pmc task")
+	("lci",       "run lci task")
+	("mybot",     "run mybot task")
+	/*****************/
+	("sys",  po::value<std::string>(), "subsystem root dirent path")
+	("key",  po::value<std::string>(), "subsystem public key filepath")
+	("addr", po::value<std::string>(), "subsystem listen ip address")
+	("port", po::value<int>(), "subsystem listen TCP port")
+	/*****************/
+	("exec",     po::value<std::string>(), "lci module run commandline")
+	("rotate",   po::value<int>()->default_value(0),  "lci module rotate mode(0~3)")
+	("fontsize", po::value<int>()->default_value(18), "lci module fontsize option");
 
+    /* 参数变量映射关系 */
+    po::variables_map vm;
 
-    try { parser.ParseCLI(argc, argv); } /* 解析 */
-    
-    catch (const args::Help&) /* 显示帮助 */
-    {
-        std::cout << parser;
-        return 0;
+    try {  /* 开始解析 */
+    	po::store(po::parse_command_line(argc, argv, desc), vm);
+	po::notify(vm);
+	if (vm.count("help")) {
+	    std::cout << desc << std::endl;
+	    return 0;
+	}
+	if (vm.count("version")) {
+	    std::cout << PMC_VERSION << std::endl;
+	    return 0;
+	}
     }
 
-    /* 解析失败 */
-    catch (const args::ParseError& e)
-    {
-        std::cerr << e.what() << std::endl;
-        std::cerr << parser;
-        return 1;
-    }
-    
-    /* 验证失败？ */
-    catch (const args::ValidationError& e)
-    {
-        std::cerr << e.what() << std::endl;
-        std::cerr << parser;
-        return 1;
+    catch (const std::exception& e) {
+	std::cerr << "ERROR: " << e.what() << std::endl;
+	std::cerr << "using --help to check options message" << std::endl;
+	throw e;
     }
 
 
+    /* pmc初始化函数 */
+    return pmc_init(vm);
+}
 
 
+void ensure_keys()  /* 如果公钥私钥不存在，就重新生成一份 */
+{
+        if (!std::filesystem::exists("./public_key.pem") || !std::filesystem::exists("./private_key.pem"))
+	{
+            auto rsa_keypair = qing::MyRSA::Generator();
+            rsa_keypair.save_pri_key("./private_key.pem");  
+            rsa_keypair.save_pub_key("./public_key.pem");
 
+            /* 以下是测试部分 */
+            //auto rsa_pri = qing::MyRSA::Private_Key("./private_key.pem");
+            //auto rsa_pub = qing::MyRSA::Public_Key("./public_key.pem");
 
-    /*------------------------------*/
-    /* 初始化日志模块 */
-    qing::Logger::getInstance().init(LogLevel::DEBUG, true);
+            //std::string hex = rsa_pub.Encrypt("你好");
+            //std::cerr << rsa_pri.Decrypt(hex) << '.' << std::endl;	
+        }
+}
 
-
-    try
-    {
+void try_start_i2c_modules() 
+try {
         I2C_init();
         PCA9685_init();
         MPU6050_init();
-    }
-    catch (std::runtime_error& exp)
-    {
+}
+catch (std::runtime_error& exp)
+{
 	std::cout << exp.what() << std::endl;
-    }
+}
 
-    try{
+void try_start_camera_thread()
+try {
 	/* 初始化相机 */    
 	Camera_init(640, 480);
 	Camera_check();
 	Camera_setVideoFormat();
 	Camera_reqBuf();
 	Camera_setup();
-	Camera_run();
-    }
-    catch (std::runtime_error& exp)
-    {
-        std::cout << exp.what() << std::endl;
-    }
+	//Camera_run();
+}
+catch (std::runtime_error& exp)
+{
+	std::cout << exp.what() << std::endl;
+}
+
+
+/* 初始化PMC并发机器 */
+int pmc_init(po::variables_map& vm) {
+
+
+    /* 初始化日志模块 */
+    qing::Logger::getInstance().init(LogLevel::DEBUG, true);
+
+
+    /* 启动硬件模组 */
+    try_start_i2c_modules();
+    try_start_camera_thread();
+
 
     /* 初始化OpenSSL */
     OpenSSL_add_all_algorithms();
     ERR_load_crypto_strings();
 
+    int masterfd; /* 控制台文件描述符 */
+    /* 在运行到多线程之前，进行fork() */
+    if ((masterfd = posix_openpt(O_RDWR)) == -1) { /* 打开一个新的虚拟控制台 */
+        throw std::runtime_error("posix_openpt");
+    }
+
+    /*--------------------------------------------------*/
+    /* 创建两个管道：一个用于发送命令，一个用于接收输出 */
+    int command_pipe[2]; /* [0] 是读端，[1] 是写端 */
+    if (pipe(command_pipe) == -1)
+        throw std::runtime_error(
+            "pipe:" + std::string(strerror(errno))
+        );
+    /* 创建成功 */
+    /*--------------------------------------------------*/
 
     /* 任务池 */
     auto taskPool = std::vector<std::shared_ptr<qing::ITask>>{};
 
     /*----------------------------------------*/
     /* LINUX CHINESE INTERF */
-    if (lciFlag) {
+    if (vm.count("lci")) {
+
+        /* FIXME: 这个分支与别的分支不能共存，因为主线程需要等待子进程终止 */
     
-        if (!(rotate && fontsize && exec)) {
+        if (!(vm.count("rotate") && vm.count("fontsize") && vm.count("exec"))) {
             throw std::runtime_error("您进入了lci模块，请输入以下选项 --rotate， --fontsize， --exec");
         }
 
-	/* 在运行到多线程之前，进行fork() */
-	int masterfd; /* 控制台文件描述符 */
-	if ((masterfd = posix_openpt(O_RDWR)) == -1) { /* 打开一个新的虚拟控制台 */
-		throw std::runtime_error("posix_openpt");
-        }
 
 	if (grantpt(masterfd) != 0 || unlockpt(masterfd) != 0) { /* 解锁虚拟控制台？ */
 		close(masterfd);
@@ -206,15 +244,6 @@ int main(int argc, char** argv) {
 	);
 
 
-	/*--------------------------------------------------*/
-	/* 创建两个管道：一个用于发送命令，一个用于接收输出 */
-	int command_pipe[2]; /* [0] 是读端，[1] 是写端 */
-	if (pipe(command_pipe) == -1)
-		throw std::runtime_error(
-			"pipe:" + std::string(strerror(errno))
-		);
-	/*--------------------------------------------------*/
-	/* 创建成功 */
 
 	
 	/* Fork中间子进程 */
@@ -285,27 +314,23 @@ int main(int argc, char** argv) {
 
 	/* 返回其他正数表示这是主进程 */
 	else {
+
 		LOG_INFO("LCI main thread is running...");
-		close(command_pipe[0]); // 关闭读端
 
 
 
 		auto lciTask = std::make_shared<qing::LciTask>(
-			args::get(exec),
+			vm["exec"].as<std::string>(),
 			masterfd, command_pipe[1],
-			args::get(rotate),
-			args::get(fontsize)
+			vm["rotate"].as<int>(),
+			vm["fontsize"].as<int>()
 		);
 		lciTask->start();
 	        taskPool.push_back(lciTask);
 	
 
-		/* 等待中间子进程终止 */
-		waitpid(pid, nullptr, 0);
-
-		/* 关闭管道 */
-		close(command_pipe[1]);
-		close(masterfd);
+		/* 不等待中间子进程终止 */
+		//waitpid(pid, nullptr, 0);
 
 	}
     
@@ -313,41 +338,28 @@ int main(int argc, char** argv) {
 
 
     /*----------------------------------------*/
-    /* 运行 生成分支 */
-    else if (rsaGen)
-    {
-        auto rsa_keypair = qing::MyRSA::Generator();
-        rsa_keypair.save_pri_key("./private_key.pem");  
-        rsa_keypair.save_pub_key("./public_key.pem");
-
-        /* 以下是测试部分 */
-        //auto rsa_pri = qing::MyRSA::Private_Key("./private_key.pem");
-        //auto rsa_pub = qing::MyRSA::Public_Key("./public_key.pem");
-
-        //std::string hex = rsa_pub.Encrypt("你好");
-        //std::cerr << rsa_pri.Decrypt(hex) << '.' << std::endl;	
-
-    }
-
-    else if (mybotFlag) {
-    	auto task = std::make_shared<qing::ParserServerTask>();
+    else if (vm.count("mybot")) {
+    	auto task = std::make_shared<qing::ParserTask>();
 	task->start();
 	taskPool.push_back(task);
     }
     /*----------------------------------------*/
     /* 运行配置分支 */
-    else if (pmcFlag) {
-        if (!(addr && port && sys && key))  {
+    else if (vm.count("pmc")) {
+
+        if (!(vm.count("addr") && vm.count("port") && vm.count("sys") && vm.count("key")))  {
             throw std::runtime_error("请输入下列参数： --addr, --port, --sys, --key");
         }
 
+	ensure_keys();
+
         /*-------------------*/
         /* 创建PMC */
-        auto pmcTask = std::make_shared<PmcTask>(
-            args::get(sys),
-            args::get(key),
-            args::get(addr),
-            args::get(port)
+        auto pmcTask = std::make_shared<qing::PmcTask>(
+            vm["sys"].as<std::string>(),
+            vm["key"].as<std::string>(),
+            vm["addr"].as<std::string>(),
+            vm["port"].as<int>()
         );
         pmcTask->start();
 	taskPool.push_back(pmcTask);
@@ -368,6 +380,11 @@ int main(int argc, char** argv) {
         task->stop();
     }
 
+    /* 将管道移动到分支外面 */
+    close(command_pipe[0]); // 关闭读端
+    close(command_pipe[1]);
+
+    close(masterfd);  /* 关闭虚拟终端 */
 
     /* 清理 OpenSSL 资源 */
     EVP_cleanup();

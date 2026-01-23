@@ -1,26 +1,34 @@
 #pragma once
 #include <iostream>
 #include <stdexcept>
-#include "../Dashun.h"
+#include "nn/NeuralNetwork.hpp"
 namespace qing {
 class NNBuilder {  /* 神经网络构建 */
 public:
-    void add(NeuralNetwork &layer) {
-        nn.push_back(layer);
-    }
+    void add(NeuralNetwork &layer);
 
-    std::vector<std::pair<long, long>> get_shape() const {
-        std::vector<std::pair<long, long>> shape;
-        for (long j = 0; j < nn.size(); ++j) {
-            shape.emplace_back(nn[j].get_inputno(), nn[j].get_outputno());
+    std::vector<std::pair<long, long>> get_shape() const;
+
+    void print_shape() const;
+
+    /* 向输出流储存模型 */
+    void save(std::ostream& out) {
+        for (auto& layer: nn) {
+            layer.save(out);
         }
-        return shape;
     }
 
-    void print_shape() const {
-        auto shape = get_shape();
-        for (const auto& p : shape) {
-            std::cout << p.first << " -> " << p.second << std::endl;
+    /* 从输入流加载模型 */
+    void load(std::istream& in) {
+        nn.clear();
+        while(true) {
+            try{
+                auto layer = NeuralNetwork::Load_in_Factory(in);
+                add(layer);
+            }
+	    catch (std::runtime_error& e) {
+                break;
+            }
         }
     }
 
@@ -77,32 +85,14 @@ public:
     //    return s;
     //}
 
-public:
     /* 前向反馈 */
-    std::vector<float> forward(std::vector<float>& r) {
-        auto x = r;
-        for (long j=0; j< nn.size(); ++j) {
-            x = nn[j].forward(x);
-        }
-	return x;
-    }
+    std::vector<float> forward(std::vector<float>& r);
+
     /* 反向传播 */
-    std::vector<float> backward(std::vector<float>& errs) {
-        auto e = errs;
-        for (long j=nn.size()-1; j>=0;--j) {
-            e = nn[j].backward(e);
-            nn[j].update();
-        }
-	return e;
-    }
+    std::vector<float> backward(std::vector<float>& errs, float discount = 1.0);
+
     /* 计算误差 */
-    std::vector<float> cal_err(std::vector<float>& r, std::vector<float>& t) {
-        auto res = r;
-        for (long j=0; j<r.size(); ++j) {
-            res[j] = t[j] - r[j];
-        }
-	return res;
-    }
+    std::vector<float> cal_err(std::vector<float>& r, std::vector<float>& t);
 
 
 

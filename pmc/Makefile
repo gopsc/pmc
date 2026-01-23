@@ -16,7 +16,7 @@ CPP:= g++
 
 INCS:= -I include/
 
-LIBS := -lpthread -lssl -lcrypto -lcpp-httplib -ljpeg
+LIBS := -lpthread -lssl -lcrypto -lcpp-httplib -ljpeg -lboost_program_options
 
 CPPFLAGS := --std=c++20 -O3 -pipe #-Wall -Werror
 
@@ -24,7 +24,7 @@ BUILD_DIR = build
 $(shell mkdir -p $(BUILD_DIR))
 
 #-----------
-$(APP_NAME): $(BUILD_DIR)/main.o $(BUILD_DIR)/ansi.o $(BUILD_DIR)/utf8.o $(BUILD_DIR)/fsm.o $(BUILD_DIR)/Color.o $(BUILD_DIR)/ku500.o $(BUILD_DIR)/CommonThread.o $(BUILD_DIR)/Drawable.o $(BUILD_DIR)/Area.o $(BUILD_DIR)/CmdArea.o $(BUILD_DIR)/InputBox.o $(BUILD_DIR)/KeyboardEvent.o $(BUILD_DIR)/FrameBuf.o $(BUILD_DIR)/I2C.o $(BUILD_DIR)/PCA9685.o $(BUILD_DIR)/MPU6050.o $(BUILD_DIR)/Camera.o
+$(APP_NAME): $(BUILD_DIR)/main.o $(BUILD_DIR)/ansi.o $(BUILD_DIR)/utf8.o $(BUILD_DIR)/fsm.o $(BUILD_DIR)/Color.o $(BUILD_DIR)/ku500.o $(BUILD_DIR)/CommonThread.o $(BUILD_DIR)/Drawable.o $(BUILD_DIR)/Area.o $(BUILD_DIR)/CmdArea.o $(BUILD_DIR)/InputBox.o $(BUILD_DIR)/KeyboardEvent.o $(BUILD_DIR)/FrameBuf.o $(BUILD_DIR)/I2C.o $(BUILD_DIR)/PCA9685.o $(BUILD_DIR)/MPU6050.o $(BUILD_DIR)/Camera.o $(BUILD_DIR)/Matrix.o $(BUILD_DIR)/NeuralNetwork.o $(BUILD_DIR)/NNBuilder.o $(BUILD_DIR)/ILayer.o $(BUILD_DIR)/Thread.o $(BUILD_DIR)/HttpTask.o $(BUILD_DIR)/LciTask.o $(BUILD_DIR)/PmcTask.o $(BUILD_DIR)/ParserTask.o
 	$(CPP) $^ $(LIBS) -o $@
 
 $(BUILD_DIR)/main.o:  src/main.cpp
@@ -78,6 +78,32 @@ $(BUILD_DIR)/MPU6050.o:  src/hd/MPU6050.cpp
 $(BUILD_DIR)/Camera.o:  src/hd/Camera.cpp
 	$(CPP) $(CPPFLAGS) -c $^ $(INCS) -o $@
 
+$(BUILD_DIR)/Matrix.o:  src/nn/Matrix.cpp
+	$(CPP) $(CPPFLAGS) -c $^ $(INCS) -o $@
+
+$(BUILD_DIR)/NeuralNetwork.o: src/nn/NeuralNetwork.cpp
+	$(CPP) $(CPPFLAGS) -c $^ $(INCS) -o $@
+
+$(BUILD_DIR)/NNBuilder.o: src/nn/NNBuilder.cpp
+	$(CPP) $(CPPFLAGS) -c $^ $(INCS) -o $@
+
+$(BUILD_DIR)/ILayer.o: src/nn/ILayer.cpp
+	$(CPP) $(CPPFLAGS) -c $^ $(INCS) -o $@
+
+$(BUILD_DIR)/Thread.o: src/th/Thread.cpp
+	$(CPP) $(CPPFLAGS) -c $^ $(INCS) -o $@
+
+$(BUILD_DIR)/HttpTask.o: src/pmc/HttpTask.cpp
+	$(CPP) $(CPPFLAGS) -c $^ $(INCS) -o $@
+
+$(BUILD_DIR)/LciTask.o: src/pmc/LciTask.cpp
+	$(CPP) $(CPPFLAGS) -c $^ $(INCS) -o $@
+
+$(BUILD_DIR)/PmcTask.o: src/pmc/PmcTask.cpp
+	$(CPP) $(CPPFLAGS) -c $^ $(INCS) -o $@
+
+$(BUILD_DIR)/ParserTask.o: src/pmc/ParserTask.cpp
+	$(CPP) $(CPPFLAGS) -c $^ $(INCS) -o $@
 
 
 install: $(APP_NAME)
@@ -89,8 +115,8 @@ install: $(APP_NAME)
 	@
 	@echo "正在配置 $(APP_NAME)"
 	@mkdir -p $(CONF_DIR)
-	#@cp sets/$(CONF_NAME) $(CONF_DIR)/$(CONF_NAME)
-	@cp sets/$(SRV_NAME) $(SRV_DIR)/$(SRV_NAME)
+	#@cp $(CONF_NAME) $(CONF_DIR)/$(CONF_NAME)
+	@cp $(SRV_NAME) $(SRV_DIR)/$(SRV_NAME)
 	@systemctl daemon-reload
 	@systemctl enable $(SRV_NAME)
 	@systemctl restart $(SRV_NAME)

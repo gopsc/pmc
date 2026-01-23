@@ -1,3 +1,8 @@
+/*
+ * 这个是个抽象类，子类实现抽象的内部接口后
+ *
+ * 可以调用它已经写好的绘制方法。
+ */
 #pragma once
 #include "Rectangle.h"
 #include "Color.h"
@@ -12,7 +17,6 @@ extern int zzhinumber;
 namespace qing {
 class Drawable {
 public:
-
 	enum class Rotate: char {	/* 表示旋转方向 */
 		R_0 = 0,
 		R_90 = 1,
@@ -50,13 +54,15 @@ public:
 	virtual void line(int x1, int y1, int x2, int y2, Color &clr);
 	virtual void rectangle(int x, int y, int w, int h, Color &clr);
 	virtual void rectangle_fill(int x, int y, int w, int h, Color &clr);
-	virtual void up(int x, int y, int w, int h, int level); /* FIXME: 不使用移动函数 */
-	virtual void down(int x, int y, int w, int h, int level);
+	virtual void up(int x, int y, int w, int h, int level);   /* FIXME: 不使用移动函数 */
+	virtual void down(int x, int y, int w, int h, int level); /* FIXME: 这些函数麻烦且消耗资源，不如重新绘制 */
 	virtual void left(int x, int y, int w, int h, int level);
 	virtual void right(int x, int y, int w, int h, int level);
 	virtual void flush(Drawable *n, bool border) = 0;
 	/*------ printer 打印 ------
-	 * 打印文字 */
+	 * 打印文字
+	 *
+	 * 只实现了打印文字的基本方法 */
 	void drawvfont(int x, int y, unsigned short z, Color &clr);
 	/*------ test 测试 ------
 	 * 绘制测试图案 */
@@ -77,7 +83,7 @@ protected:
 	/* 绘制文字 */
 	unsigned char *drawvect(int x, int y, unsigned char *vect, int width, int high, Color &clr);
 	/*------ printer ------*/
-	//Color clr = green;
-	Color clr = white;
+	Color clr = green;
+	//Color clr = white;
 };
 }

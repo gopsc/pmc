@@ -15,8 +15,8 @@ public:
 	void _down(int x, int y, int w, int h, int level) override;
 	void _left(int x, int y, int w, int h, int level) override;
 	void _right(int x, int y, int w, int h, int level) override;
-	void flush(Drawable *n, bool border = false) override;
-	void move(int x, int y);
+	virtual void flush(Drawable *n, bool border = false) override;
+	virtual void move(int x, int y);
 protected:
 	Drawable *d;
 };

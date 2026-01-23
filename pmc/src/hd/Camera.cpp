@@ -15,17 +15,17 @@
 
 #include "Dashun_linux.hpp"
 
-//#define cimg_display 0 /* 不显示图像，只保存 */
+#define cimg_display 0 /* 不显示图像，只保存 */
 //#include "CImg.h"
 #include <jpeglib.h>
 using namespace cimg_library;
-static const char* filename = "/dev/video0";
+static const char* filename = "/dev/video0"; /* FIXME: 不一定 */
 static int width = 0;
 static int height = 0;
 
 /* 为了在获取单帧中使用 */
-struct v4l2_buffer buf;
-enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+static struct v4l2_buffer buf;
+static enum v4l2_buf_type type  =  V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
 
 #include <thread>
@@ -233,10 +233,10 @@ void Camera_unsetup() {
 
 
 std::vector<unsigned char> compress_to_jpeg(const CImg<unsigned char>& image, int quality = 75) {
-    std::cout << "compress_to_jpeg called with CImg: width=" << image.width() 
-              << ", height=" << image.height() 
-              << ", spectrum=" << image.spectrum()
-              << ", quality=" << quality << std::endl;
+    //std::cout << "compress_to_jpeg called with CImg: width=" << image.width() 
+    //          << ", height=" << image.height() 
+    //          << ", spectrum=" << image.spectrum()
+    //          << ", quality=" << quality << std::endl;
     
     // 检查图像的有效性
     if (image.width() == 0 || image.height() == 0) {
@@ -246,7 +246,7 @@ std::vector<unsigned char> compress_to_jpeg(const CImg<unsigned char>& image, in
     
     // 检查频谱（通道数）
     int channels = image.spectrum();
-    std::cout << "Image has " << channels << " channel(s)" << std::endl;
+    //std::cout << "Image has " << channels << " channel(s)" << std::endl;
     
     // CImg数据布局：默认是平面格式 [plane1, plane2, plane3]
     // 但我们需要交错的RGB格式用于JPEG压缩
@@ -326,14 +326,14 @@ std::vector<unsigned char> compress_to_jpeg(const CImg<unsigned char>& image, in
         
         // 显示进度
         if (y % 100 == 0) {
-            std::cout << "Processing row " << y << "/" << height << std::endl;
+            //std::cout << "Processing row " << y << "/" << height << std::endl;
         }
     }
     
     jpeg_finish_compress(&cinfo);
     jpeg_destroy_compress(&cinfo);
     
-    std::cout << "JPEG compression finished, buffer_size=" << buffer_size << std::endl;
+    //std::cout << "JPEG compression finished, buffer_size=" << buffer_size << std::endl;
     
     // 将JPEG数据复制到vector
     std::vector<unsigned char> jpeg_data(buffer, buffer + buffer_size);
@@ -348,9 +348,9 @@ std::vector<unsigned char> compress_to_jpeg(const CImg<unsigned char>& image, in
                        jpeg_data[jpeg_data.size()-2] == 0xFF && 
                        jpeg_data[jpeg_data.size()-1] == 0xD9);
         
-        std::cout << "Generated JPEG: size=" << jpeg_data.size() 
-                  << " bytes, has SOI: " << has_soi 
-                  << ", has EOI: " << has_eoi << std::endl;
+        //std::cout << "Generated JPEG: size=" << jpeg_data.size() 
+        //          << " bytes, has SOI: " << has_soi 
+        //          << ", has EOI: " << has_eoi << std::endl;
         
         if (!has_soi || !has_eoi) {
             std::cerr << "Warning: Generated JPEG may be corrupted!" << std::endl;
@@ -366,25 +366,25 @@ std::vector<unsigned char> compress_to_jpeg(const CImg<unsigned char>& image, in
 static int Camera_main() {
 
 
-    std::cout << "Starting Camera_main function..." << std::endl;
+    //std::cout << "Starting Camera_main function..." << std::endl;
 
     /* 初始化TCP服务器 */
-    std::cout << "Initializing TCP server..." << std::endl;
+    //std::cout << "Initializing TCP server..." << std::endl;
     Camera_TCPServer_init();
 
-    std::cout << "TCP server initialized successfully" << std::endl;
+    //std::cout << "TCP server initialized successfully" << std::endl;
 
     /* the loop of data capture */
     bool flag = true;
-    std::cout << "Entering main loop..." << std::endl;
+    //std::cout << "Entering main loop..." << std::endl;
 
     int loop_count = 0;
     while (flag) {
         loop_count++;
         if (loop_count % 100 == 0) {
-            std::cout << "Main loop iteration: " << loop_count << std::endl;
-            std::cout << "Camera running: " << camera_running.load() << std::endl;
-            std::cout << "Number of clients: " << client_sockets.size() << std::endl;
+            //std::cout << "Main loop iteration: " << loop_count << std::endl;
+            //std::cout << "Camera running: " << camera_running.load() << std::endl;
+            //std::cout << "Number of clients: " << client_sockets.size() << std::endl;
         }
 
         
@@ -497,7 +497,7 @@ static int Camera_main() {
             if (compressed_jpeg_buffer.size() >= 2) {
                 has_soi = (compressed_jpeg_buffer[0] == 0xFF && compressed_jpeg_buffer[1] == 0xD8);
             }
-            std::cout << "Generated JPEG: size=" << compressed_jpeg_buffer.size() << " bytes, has SOI: " << has_soi << std::endl;
+            //std::cout << "Generated JPEG: size=" << compressed_jpeg_buffer.size() << " bytes, has SOI: " << has_soi << std::endl;
 
 
             /* 发送数据给所有客户端 */
@@ -720,7 +720,7 @@ CImg<unsigned char> get_frame_from_camera(bool& flag) {
     }
 
     /* process frameData */
-    std::cout << "Got length: " << buf.length << std::endl;
+    //std::cout << "Got length: " << buf.length << std::endl;
     auto img = YUYV_to_CImg(frameData, width, height);
     
     /* 解除内存映射 */

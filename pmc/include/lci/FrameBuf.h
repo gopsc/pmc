@@ -9,6 +9,7 @@ namespace qing{
 class FrameBuf: public Drawable { /* 帧缓冲区类 */
 public:
 	FrameBuf(const char *path, int rotate, int fontsize);
+	FrameBuf(const FrameBuf&) = delete; /* 持有fd */
 	~FrameBuf();
 	int get_bpp(); /* bits_per_pixel 像素比特 */
 	virtual Color _get(int x, int y) override;
@@ -24,6 +25,7 @@ public:
 	public:
 		UnknowBPP(): std::runtime_error("Unknow the number of Bits Per Pixel.") {}
 	};
+	static const int _HEAD_LEN = 8;
 
 private:
 	int d = -1;

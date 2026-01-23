@@ -10,10 +10,14 @@ sudo apt update
 sudo apt install git g++ cmake
 #sudo apt install openjdk-17-jdk maven
 #sudo apt install python3 python3-pip python3-venv
+#sudo dnf install python3-virtualenv
 sudo apt install nlohmann-json3-dev
-sudo apt install libboost-dev
+sudo apt install libboost-all-dev
 sudo apt install libssl-dev
 sudo apt install cimg-dev
+#sudo apt install libargs-dev
+sudo apt install libcpp-httplib-dev
+sudo apt install lua5.4 liblua5.4-dev
 
 2. 创建项目
 mkdir bot

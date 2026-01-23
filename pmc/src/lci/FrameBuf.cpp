@@ -264,7 +264,7 @@ namespace qing {
 		if (border) {
 			rectangle(pos.w-1, pos.h-1, size.w+2-1, size.h+2-1, clr);
 			rectangle(pos.w-2, pos.h-2, size.w+4-1, size.h+4-1, clr);
-			rectangle_fill(pos.w-2, pos.h-14-2+1, size.w+4-1, 14, clr);
+			rectangle_fill(pos.w-2, pos.h-_HEAD_LEN-2+1, size.w+4-1, _HEAD_LEN, clr);
 		}
 
 		Area *p = dynamic_cast<Area*>(n);

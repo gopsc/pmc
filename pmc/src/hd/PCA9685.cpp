@@ -1,10 +1,10 @@
-
+/* PCA9685 舵机驱动板 */
 #include <cstdint>
 #include <unistd.h>
 #include "Dashun_linux.hpp"
 
-constexpr uint8_t PCA9685_ADDR = 0x40;  // 7位地址
-static bool flag = false;
+constexpr uint8_t PCA9685_ADDR = 0x40;  /* 7位地址 */
+static bool flag = false; /* 启动标志 */
 bool PCA9685_is_open() {
     return flag;
 }
@@ -13,7 +13,7 @@ void PCA9685_init() {
     I2C_lock();
     I2C_setAddr(PCA9685_ADDR);
     I2C_writeReg(0x00, 0x20);   /* 开启AI（地址自增）和关闭SLEEP */
-    flag = true;
+    flag = true;  
     I2C_unlock();
     usleep(5000);               /* 等待振荡器启动 */
 

@@ -68,10 +68,6 @@ public:
 		/* 将文件描述符集合清零 */
 		FD_ZERO(&read_fds);
 
-		/* 设置超时时间 */
-		timeout.tv_sec = 1;
-		timeout.tv_usec = 0;
-
 		/* 清空缓存字符串 */
 		output = "";
 
@@ -101,6 +97,10 @@ public:
 		if (!FD_ISSET(masterfd, &read_fds))
 			FD_SET(masterfd, &read_fds);
 
+		/* 设置超时时间 */
+		timeout.tv_sec = 0;
+		timeout.tv_usec = 10000;
+
 		int ret = select(masterfd + 1, &read_fds, NULL, NULL, &timeout);
 		if (ret == -1) {
 			//throw std::runtime_error("select");
@@ -108,7 +108,7 @@ public:
 			return;    /* qing(20260108): 为什么不停止 */
 		} else if (ret == 0) { /* No data to read 无值可读 */
 			if (output == "") return; /* 在空闲时进行打印*/
-			font->print((char*)output.c_str(), 5); /* 按次为单位进行刷新应该可以提高效率 20260108(qing): ？*/
+			font->print((char*)output.c_str(), 0); /* 按次为单位进行刷新应该可以提高效率 20260108(qing): ？*/
 			back->flush(font, false);
 			output = "";
 		} else {

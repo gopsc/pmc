@@ -1,3 +1,7 @@
+/*
+ * FIXME: 现在输入框无法触底
+ */
+
 #include <cstring>
 #include <vector>
 #include "lci/CmdArea.h"
@@ -55,7 +59,6 @@ namespace qing {
 	}
 
 	void CmdArea::print(char *utf8, int d) {
-
 		auto color = black;
 		auto fontsize = FontSize_get();
 		auto half_f = fontsize / 2;
@@ -155,7 +158,7 @@ namespace qing {
 
 			}
 
-			if (y_f >= l.h - (d + 1) * fontsize) {
+			if (y_f >= l.h - (d + 3) * fontsize) {  /* FIXME: d加上输入框高度 */
 
 				int level = (y_f % fontsize == 0) ? fontsize : y_f % fontsize;
 				y_f -= level;

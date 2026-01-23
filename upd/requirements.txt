@@ -5,5 +5,5 @@ cryptography
 GitPython
 paramiko
 setuptools
-jwt
-#../../_pmc
+PyJWT
+requests

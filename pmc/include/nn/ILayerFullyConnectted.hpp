@@ -1,5 +1,6 @@
 #pragma once
-#include "../Dashun.h"
+#include "nn/ILayer.hpp"
+#include "nn/ILearnable.hpp"
 class ILayerFullyConnectted: public ILayer, public ILearnable {
 public:
     /* 正向传播，返回神经网络输出 */

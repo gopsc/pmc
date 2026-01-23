@@ -15,7 +15,7 @@ with open(f"{script_dir}/_init.csv", encoding='utf-8') as f:
     records = [row[0] for row in reader]
 def main():
     comm = PmcComm('http://localhost:8012')
-    comm.Set_RSA_Pri_Key('private_key.pem')
+    comm.Set_RSA_Pri_Key('../pmc/private_key.pem')
     comm.Try_Get_AES_Key()
     for item in records:
         if item and not item.startswith('#'):

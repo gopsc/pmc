@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>虚拟访问代理工具</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+        .api-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+        .api-section h2 {
+            color: #3498db;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #3498db;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="text"], textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            font-family: monospace;
+        }
+        textarea {
+            min-height: 100px;
+        }
+        button {
+            padding: 12px 24px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .response-container {
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .response-header {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .response-body {
+            padding: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+            font-family: monospace;
+        }
+        .json-viewer {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .copy-btn {
+            width: auto;
+            padding: 5px 10px;
+            font-size: 14px;
+        }
+        .api-info {
+            background-color: #e8f4f8;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        .api-info code {
+            background-color: #e9ecef;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        .request-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .request-details .form-group {
+            margin-bottom: 0;
+        }
+        .headers-editor {
+            min-height: 150px;
+        }
+        .token-status {
+            margin-bottom: 20px;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .token-valid {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .token-invalid {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>虚拟访问代理工具</h1>
+        
+        <div id="token-status" class="token-status">
+            <!-- 令牌状态将在这里显示 -->
+        </div>
+        
+        <div class="api-section">
+            <h2>HTTP代理请求</h2>
+            <div class="api-info">
+                <strong>API信息：</strong><br>
+                URL: <code>/</code><br>
+                方法: <code>POST</code><br>
+                认证: <code>Bearer JWT令牌</code><br>
+                请求体: JSON格式的代理请求参数
+            </div>
+            
+            <div class="form-group">
+                <label for="target-url">目标URL：</label>
+                <input type="text" id="target-url" placeholder="输入要访问的目标URL" value="https://httpbin.org/get">
+            </div>
+            
+            <div class="request-details">
+                <div class="form-group">
+                    <label for="http-method">HTTP方法：</label>
+                    <select id="http-method">
+                        <option value="GET">GET</option>
+                        <option value="POST">POST</option>
+                        <option value="PUT">PUT</option>
+                        <option value="DELETE">DELETE</option>
+                        <option value="PATCH">PATCH</option>
+                        <option value="HEAD">HEAD</option>
+                        <option value="OPTIONS">OPTIONS</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="timeout">超时时间（秒）：</label>
+                    <input type="text" id="timeout" value="30" placeholder="请求超时时间">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="request-headers">请求头（JSON格式）：</label>
+                <textarea id="request-headers" class="headers-editor" placeholder='{"User-Agent": "VirtualAccessProxy/1.0", "Accept": "application/json"}'>{"User-Agent": "VirtualAccessProxy/1.0", "Accept": "application/json"}</textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="request-params">URL参数（JSON格式）：</label>
+                <textarea id="request-params" placeholder='{"param1": "value1", "param2": "value2"}'>{"test": "virtual-access"}</textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="request-payload">请求体（JSON格式）：</label>
+                <textarea id="request-payload" placeholder='{"key": "value"}'>{"message": "Hello from Virtual Access Proxy"}</textarea>
+            </div>
+            
+            <button id="send-request-btn">发送代理请求</button>
+            <button id="clear-btn">清空表单</button>
+            
+            <div class="response-container">
+                <div class="response-header">
+                    <span>响应结果</span>
+                    <button id="copy-response-btn" class="copy-btn">复制</button>
+                </div>
+                <div class="response-body">
+                    <pre class="json-viewer" id="response-content"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // JWT令牌管理函数
+        class JwtTokenManager {
+            // 获取JWT令牌值
+            static getToken() {
+                const cookies = document.cookie.split(';');
+                for (let cookie of cookies) {
+                    cookie = cookie.trim();
+                    if (cookie.startsWith('jwt_token_value=')) {
+                        return decodeURIComponent(cookie.substring('jwt_token_value='.length));
+                    }
+                }
+                return null;
+            }
+            
+            // 检查是否有有效令牌
+            static hasValidToken() {
+                return this.getToken() !== null;
+            }
+            
+            // 显示令牌状态
+            static showTokenStatus() {
+                const token = this.getToken();
+                if (token) {
+                    return {
+                        valid: true,
+                        message: '✓ 已登录 - JWT令牌可用',
+                        tokenPreview: token.substring(0, 20) + '...'
+                    };
+                } else {
+                    return {
+                        valid: false,
+                        message: '⚠ 未登录 - 需要JWT令牌才能调用API',
+                        tokenPreview: null
+                    };
+                }
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // 获取DOM元素
+            const tokenStatusDiv = document.getElementById('token-status');
+            const targetUrlInput = document.getElementById('target-url');
+            const httpMethodSelect = document.getElementById('http-method');
+            const timeoutInput = document.getElementById('timeout');
+            const requestHeadersTextarea = document.getElementById('request-headers');
+            const requestParamsTextarea = document.getElementById('request-params');
+            const requestPayloadTextarea = document.getElementById('request-payload');
+            const sendRequestBtn = document.getElementById('send-request-btn');
+            const clearBtn = document.getElementById('clear-btn');
+            const responseContentDiv = document.getElementById('response-content');
+            const copyResponseBtn = document.getElementById('copy-response-btn');
+            
+            // 更新令牌状态显示
+            function updateTokenStatus() {
+                const status = JwtTokenManager.showTokenStatus();
+                tokenStatusDiv.textContent = status.message;
+                tokenStatusDiv.className = status.valid ? 'token-status token-valid' : 'token-status token-invalid';
+                
+                // 如果令牌无效，禁用发送按钮
+                sendRequestBtn.disabled = !status.valid;
+                
+                if (status.valid) {
+                    console.log('JWT令牌状态: 已登录');
+                    console.log('令牌预览:', status.tokenPreview);
+                } else {
+                    console.log('JWT令牌状态: 未登录');
+                }
+            }
+            
+            // 初始更新令牌状态
+            updateTokenStatus();
+            
+            // 格式化JSON显示
+            function formatJson(jsonStr) {
+                try {
+                    const parsed = JSON.parse(jsonStr);
+                    return JSON.stringify(parsed, null, 2);
+                } catch (e) {
+                    return jsonStr; // 如果不是有效的JSON，返回原始字符串
+                }
+            }
+            
+            // 解析JSON输入，如果无效返回空对象
+            function parseJsonInput(input, defaultValue = {}) {
+                if (!input || input.trim() === '') {
+                    return defaultValue;
+                }
+                try {
+                    return JSON.parse(input);
+                } catch (e) {
+                    console.error('JSON解析错误:', e);
+                    return defaultValue;
+                }
+            }
+            
+            // 发送代理请求
+            async function sendProxyRequest() {
+                const targetUrl = targetUrlInput.value.trim();
+                
+                if (!targetUrl) {
+                    responseContentDiv.textContent = '错误: 请输入目标URL';
+                    return;
+                }
+                
+                // 检查JWT令牌
+                const token = JwtTokenManager.getToken();
+                if (!token) {
+                    responseContentDiv.textContent = '错误: 需要JWT令牌才能调用API。请先登录获取令牌。';
+                    updateTokenStatus();
+                    return;
+                }
+                
+                // 显示加载状态
+                sendRequestBtn.textContent = '发送中...';
+                sendRequestBtn.disabled = true;
+                responseContentDiv.textContent = '正在发送代理请求...';
+                
+                try {
+                    // 构建请求体
+                    const requestBody = {
+                        url: targetUrl,
+                        method: httpMethodSelect.value,
+                        headers: parseJsonInput(requestHeadersTextarea.value),
+                        params: parseJsonInput(requestParamsTextarea.value),
+                        payload: parseJsonInput(requestPayloadTextarea.value)
+                    };
+                    
+                    console.log('发送代理请求:', requestBody);
+                    
+                    const response = await fetch('/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+                    
+                    // 处理响应状态
+                    if (response.status === 401) {
+                        const errorData = await response.json();
+                        responseContentDiv.textContent = `身份验证错误: ${errorData.error}`;
+                        updateTokenStatus();
+                        return;
+                    }
+                    
+                    // 获取响应内容和头信息
+                    const content = await response.text();
+                    const statusCode = response.status;
+                    const responseHeaders = {};
+                    
+                    // 收集响应头
+                    response.headers.forEach((value, key) => {
+                        responseHeaders[key] = value;
+                    });
+                    
+                    // 构建完整的响应信息
+                    const responseInfo = {
+                        statusCode: statusCode,
+                        headers: responseHeaders,
+                        content: content
+                    };
+                    
+                    // 格式化显示响应
+                    responseContentDiv.textContent = formatJson(JSON.stringify(responseInfo));
+                    
+                } catch (error) {
+                    responseContentDiv.textContent = `错误: ${error.message}`;
+                    console.error('代理请求错误:', error);
+                } finally {
+                    sendRequestBtn.textContent = '发送代理请求';
+                    sendRequestBtn.disabled = false;
+                }
+            }
+            
+            // 清空表单
+            function clearForm() {
+                targetUrlInput.value = '';
+                httpMethodSelect.value = 'GET';
+                timeoutInput.value = '30';
+                requestHeadersTextarea.value = '{"User-Agent": "VirtualAccessProxy/1.0", "Accept": "application/json"}';
+                requestParamsTextarea.value = '{"test": "virtual-access"}';
+                requestPayloadTextarea.value = '{"message": "Hello from Virtual Access Proxy"}';
+                responseContentDiv.textContent = '';
+            }
+            
+            // 复制响应内容
+            function copyResponse() {
+                const text = responseContentDiv.textContent;
+                navigator.clipboard.writeText(text).then(() => {
+                    const originalText = copyResponseBtn.textContent;
+                    copyResponseBtn.textContent = '已复制!';
+                    setTimeout(() => {
+                        copyResponseBtn.textContent = originalText;
+                    }, 2000);
+                }).catch(err => {
+                    console.error('复制失败:', err);
+                });
+            }
+            
+            // 事件监听
+            sendRequestBtn.addEventListener('click', sendProxyRequest);
+            clearBtn.addEventListener('click', clearForm);
+            copyResponseBtn.addEventListener('click', copyResponse);
+            
+            // 支持回车键发送
+            targetUrlInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendProxyRequest();
+                }
+            });
+            
+            // 定期检查令牌状态（每30秒）
+            setInterval(updateTokenStatus, 30000);
+        });
+    </script>
+</body>
+</html>

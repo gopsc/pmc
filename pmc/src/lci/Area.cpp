@@ -47,7 +47,7 @@ namespace qing {
 			rectangle(pos.w-1, pos.h-1, size.w+1, size.h+1, clr);
 		}
 
-		/* FIXME: ? */
+		/* FIXME: Area无需复制？如果是两块区域还是需要的 */
 		Area *p = dynamic_cast<Area*>(n);
 		if (p != nullptr) return;
 
