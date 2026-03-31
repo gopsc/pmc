@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>pmc management</title>
+    <link rel="icon" href="data:;base64,=">
+    <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+</head>
+
+<body>
+    <div class="main">
+        <div class="title">Welcome to pmc management system</div>
+        <div class="name-con">
+            <div class="user-name-text">Name: </div>
+            <input class="user-name-input" id="user-name" type="text">
+        </div>
+        <div class="passwd-con">
+            <div class="user-passwd-text">Password: </div>
+            <input class="user-passwd-input" id="user-passwd" type="password">
+        </div>
+        <div class="login-con">
+            <button onclick="login()">login</button>
+        </div>
+    </div>
+
+    <script>
+        function login() {
+            const name = document.getElementById("user-name").value
+            const passwd = document.getElementById("user-passwd").value
+            const request = new XMLHttpRequest()
+            const REQUEST_URL = "/api/login"
+
+            // if user not input any information
+            if (name === "" || passwd === "") {
+                alert("please input name or passwd")
+                return
+            }
+
+            // request api
+            let requestData = new URLSearchParams()
+            requestData.append("user-name", name)
+            requestData.append("user-passwd", passwd)
+            request.open("post", REQUEST_URL, true)
+            request.send(requestData)
+
+            request.onload = () => {
+                if (request.status === 401) {
+                    alert(request.responseText)
+                    return
+                }
+
+                if (request.status === 404) {
+                    alert(request.responseText)
+                    return
+                }
+
+                if (request.status === 500) {
+                    alert("服务端错误")
+                    return
+                }
+
+                if (request.status === 200 && request.readyState === 4) {
+                    const token = JSON.parse(request.responseText).token
+                    let date = new Date()
+                    date.setTime(date.getTime() + (3 * 24 * 60 * 60 * 1000))
+                    const UTCTime = date.toUTCString()
+                    document.cookie = `token=${token}; path=/; expires=${UTCTime}`
+                    window.location = JSON.parse(request.responseText).redirect;
+                    return
+                } else {
+                    alert(`意外错误 (${request.status})`)
+                    return
+                }
+            }
+        }
+
+        document.addEventListener("keydown", (e) => {
+            if (e.key != "Enter") {
+                return
+            }
+            login()
+        })
+    </script>
+</body>
+
+</html>

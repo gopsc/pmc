@@ -1,0 +1,24 @@
+[package]
+  cjc-version = "1.0.0"
+  name = "phs"
+  description = "nothing here"
+  version = "1.0.0"
+  target-dir = ""
+  src-dir = ""
+  output-type = "executable"
+  compile-option = ""
+  override-compile-option = ""
+  link-option = ""
+  package-configuration = {}
+
+[dependencies]
+[target.x86_64-unknown-linux-gnu]
+  [target.x86_64-unknown-linux-gnu.bin-dependencies]
+    path-option = ["/stdx/linux_x86_64_llvm/static/stdx"]
+[target.aarch64-unknown-linux-gnu]
+  [target.aarch64-unknown-linux-gnu.bin-dependencies]
+    path-option = ["/stdx/linux_aarch64_llvm/static/stdx"]
+[target.x86_64-w64-mingw32]                                                     # 系统架构和 OS 信息
+  [target.x86_64-w64-mingw32.bin-dependencies]
+    path-option = ["C:\\stdx\\windows_x86_64_llvm\\dynamic\\stdx"] # stdx 路径根据实际情况配置
+

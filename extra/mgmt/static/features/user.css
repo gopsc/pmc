@@ -1,0 +1,41 @@
+.top-bar-con {
+    width: 230px;
+    display: flex;
+    justify-content: space-between;
+}
+
+td {
+    width: 180px;
+    text-align: center;
+    font-size: 20px;
+}
+
+.addUserBtn,
+.flushBtn,
+.changePasswdBtn,
+.deleteUserBtn {
+    width: 84px;
+    height: 42px;
+    font-size: 16px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    cursor: pointer;
+}
+
+.addUserBtn {
+    background-color: #5cff007d;
+}
+
+.flushBtn {
+    background-color: #5757577d;
+}
+
+.changePasswdBtn {
+    background-color: #e6db407d;
+    color: #fb0202b0;
+}
+
+.deleteUserBtn {
+    background-color: #ff00007d;
+    color: #000000b8;
+}

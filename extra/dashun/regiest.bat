@@ -1,0 +1,1 @@
+sc create 大顺脚本 binPath= "C:\Users\90999\Desktop\tws\dashun\x64\Debug\dashun.exe" start= auto DisplayName= "大顺脚本，进程托管服务"

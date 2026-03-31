@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="icon" href="data:;base64,=">
+    <link rel="stylesheet" href="{{ url_for('static', filename='features/process.css') }}">
+    <!--
+    <script>
+        window.onload = function init() {
+            const initReq = new XMLHttpRequest()
+            const url = "http://qsont.xyz:8011/get-process"
+
+            initReq.open("get", url, true)
+            initReq.send()
+            addInProgessText()
+
+            initReq.onload = () => {
+                if (initReq.status == 200 && initReq.readyState == 4) {
+                    const res = JSON.parse(initReq.responseText)
+                    let tBody = document.getElementById("tBody")
+
+                    removeInProgessText()
+                    for (let i = 0; i < res.length; i++) {
+                        const pid = res[i].pid
+                        const status = res[i].status
+                        const cmd = res[i].cmd
+                        let trEle = document.createElement("tr")
+                        trEle.innerHTML = `
+                            <td class="text">${pid}</td>
+                            <td class="text">${status}</td>
+                            <td class="text">${cmd}</td>
+                            <td><button class="stopBtn" onclick="stopBtn('${pid}')">stop</button></td>
+                        `
+                        tBody.append(trEle)
+                    }
+                    return
+                }
+
+                if (initReq.status == 500) {
+                    alert("服务端错误")
+                    return
+                } else {
+                    alert(`意外错误 (${initReq.status})`)
+                    return
+                }
+            }
+
+            initReq.onerror = () => {
+                alert(`无法获取进程列表 (${initReq.status})`)
+            }
+
+            function addInProgessText() {
+                let inProgressText = document.getElementById("inProgressText")
+                const dotAmount = 3
+                let currDotAmount = 0
+                let dot = ""
+                setInterval(() => {
+                    dot = ""
+                    for (let i = 0; i < currDotAmount; i++) {
+                        dot = dot + "."
+                    }
+                    inProgressText.innerText = `Loading${dot}`
+                    if (currDotAmount >= dotAmount) {
+                        dot = ""
+                        currDotAmount = 0
+                    } else {
+                        currDotAmount++
+                    }
+                }, 500)
+            }
+
+            function removeInProgessText() {
+                let inProgressText = document.getElementById("inProgressText")
+                inProgressText.remove()
+            }
+        }
+    </script>
+    -->
+</head>
+
+<body>
+    <!-- stop, new flush -->
+    <button class="newBtn" onclick="newBtn()">new</button>
+    <button class="flushBtn" onclick="flushBtn()">flush</button>
+    <table border="1">
+        <thead>
+            <tr>
+                <th class="title">PID</th>
+                <th class="title">状态</th>
+                <th class="title">命令</th>
+                <th class="title">操作</th>
+            </tr>
+	    {% for item in response %}
+	    <tr>
+	      <td>{{ item.pid }}</td>
+	      <td>{{ item.status }}</td>
+	      <td>{{ item.order }}</td>
+	      <td><button class="stopBtn" onclick="stopBtn('{{ item.pid }}')">stop</button></td>
+	    </tr>
+	    {% endfor %}
+        </thead>
+        <tbody id="tBody"></tbody>
+    </table>
+    <div id="inProgressText"></div>
+
+    <div class="modal-con" id="modal-con">
+        <div class="window">
+            <div class="top-bar">
+                <div class="close-btn" onclick="closeModal()">X</div>
+            </div>
+
+            <div class="input">
+                <div class="prompt">输入模块名:</div>
+                <input id="input-area" class="input-area" type="text">
+            </div>
+            <button class="create-btn" onclick="createProcess()">创建</button>
+        </div>
+    </div>
+
+    <script>
+        function newBtn() {
+            const modal = document.getElementById("modal-con")
+            modal.style.display = "flex"
+        }
+
+        function createProcess() {
+            const moduleName = document.getElementById("input-area").value
+            const createReq = new XMLHttpRequest()
+            const url = `{{ url_for('process.create_process', name=0) }}`.replace('0', moduleName);
+
+            createReq.open("post", url, true)
+            createReq.send()
+
+            createReq.onload = () => {
+                if (createReq.status == 200 && createReq.readyState == 4) {
+                    const res = JSON.parse(createReq.responseText)
+                    if (res.status == "success") {
+                        flushBtn()
+                        return
+                    }
+                    alert(`意外错误 (${createReq.status})`)
+                    return
+                }
+
+                if (createReq.status == 500) {
+                    alert("服务端错误")
+                    return
+                } else {
+                    alert(`意外错误 (${createReq.status})`)
+                    return
+                }
+            }
+        }
+
+        function flushBtn() {
+            window.location = "{{ url_for('process.process') }}"
+        }
+
+        function stopBtn(pid) {
+            if (!confirm("确认停止该服务?")) {
+                return
+            }
+            const url = `{{ url_for('process.kill_process', pid=0) }}`.replace('0', pid);
+            const stopReq = new XMLHttpRequest();
+
+            stopReq.open("POST", url, true);
+            stopReq.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+            stopReq.send();
+
+            stopReq.onload = () => {
+                if (stopReq.status == 200 && stopReq.readyState == 4) {
+                    flushBtn()
+                    return
+                }
+
+                if (stopReq.status == 500) {
+                    alert("服务端错误")
+                    return
+                } else {
+                    alert(`意外错误 (${stopReq.status})`)
+                    return
+                }
+            }
+        }
+
+        function closeModal() {
+            const modal = document.getElementById("modal-con")
+            const input = document.getElementById("input-area")
+
+            input.value = ""
+            modal.style.display = "none"
+        }
+    </script>
+</body>
+
+</html>

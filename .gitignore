@@ -1,7 +1,19 @@
 #prj
-extra/
 users/
-pmc/build/
+*.key
+*.pem
+build/
+build_*/
+dataSet/
+dataSet*/
+resSet/
+nn
+camera
+lci
+
+# ide
+.vscode/
+.arts/
 
 # Prerequisites
 *.d

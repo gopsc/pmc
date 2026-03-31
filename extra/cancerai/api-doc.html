@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        body {
+            padding-bottom: 50px;
+        }
+
+        .title {
+            font-size: 40px;
+            color: red;
+        }
+
+        h2 {
+            color: blue;
+        }
+
+        table td {
+            width: 130px;
+            height: 30px;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <h1 style="text-align: center;">API文档</h1>
+    <hr>
+    <div>目录</div>
+    <a href="#login">登陆</a>
+    <br>
+    <a href="#getNotes">获取节点</a>
+    <br>
+    <a href="#addNote">新增节点</a>
+    <br>
+    <a href="#deleteNote">删除节点</a>
+    <br>
+    <a href="#updateNote">修改节点</a>
+    <hr>
+
+    <div class="title" id="login">登陆</div>
+    <h2>URL</h2>
+    <h4>127.0.0.1:8011/api/login</h4>
+
+    <h2>请求方法</h2>
+    <h4>POST</h4>
+
+    <h2>请求头</h2>
+    <h4>无</h4>
+
+    <h2>请求体</h2>
+    <h4>类型: JSON</h4>
+    <h4>字段:</h4>
+
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>name</td>
+                <td>password</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>用户名</td>
+                <td>密码</td>
+            </tr>
+            <tr>
+                <td>是否必须</td>
+                <td>True</td>
+                <td>True</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+                <td>String</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>cancerai</td>
+                <td>123</td>
+            </tr>
+        </tbody>
+    </table>
+    <h2>响应体</h2>
+    <h4>状态码: 200</h4>
+    <h4>类型: JSON</h4>
+    <h4>说明: 登陆成功</h4>
+    <h4>字段:</h4>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>message</td>
+                <td>data</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>说明信息</td>
+                <td>token</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+                <td>String</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"登陆成功"</td>
+                <td>"eyJhbGciOiJIUzI1NiJ9....."</td>
+            </tr>
+        </tbody>
+    </table>
+    <hr>
+    <h4>状态码: 401</h4>
+    <h4>类型: JSON</h4>
+    <h4>说明: 登陆失败</h4>
+    <h4>字段:</h4>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>message</td>
+                <td>data</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>说明信息</td>
+                <td>无</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+                <td>null</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"账号或密码错误"</td>
+                <td>null</td>
+            </tr>
+        </tbody>
+    </table>
+    <hr>
+    <h4>状态码: 405</h4>
+    <h4>类型: JSON</h4>
+    <h4>说明: 请求方式不支持</h4>
+    <h4>字段:</h4>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>message</td>
+                <td>data</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>说明信息</td>
+                <td>无</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+                <td>null</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"请求方式错误"</td>
+                <td>null</td>
+            </tr>
+        </tbody>
+    </table>
+    <br><br>
+    <div class="title" id="getNotes">获取节点</div>
+    <h2>URL</h2>
+    <h4>127.0.0.1:8011/api/get-notes</h4>
+    <h2>请求方法</h2>
+    <h4>GET</h4>
+    <h2>请求头</h2>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>token</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>登陆时拿到的令牌</td>
+            </tr>
+            <tr>
+                <td>是否必须</td>
+                <td>True</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"eyJhbGciOiJIUzI1NiJ9....."</td>
+            </tr>
+        </tbody>
+    </table>
+    <h2>查询参数</h2>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>token</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>PID</td>
+            </tr>
+            <tr>
+                <td>是否必须</td>
+                <td>True</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>int</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>0
+            </tr>
+            </tr>
+        </tbody>
+    </table>
+    <h2>请求体</h2>
+    <h4>无</h4>
+    <h2>响应体</h2>
+    <h4>状态码: 200</h4>
+    <h4>类型: JSON</h4>
+    <h4>说明: 查询成功</h4>
+    <h4>字段:</h4>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>message</td>
+                <td>data</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>说明信息</td>
+                <td>查询到的Note</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+                <td>List</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"Request OK"</td>
+                <td>[{}, {}, {}]</td>
+            </tr>
+        </tbody>
+    </table>
+    <hr>
+    <h4>状态码: 401</h4>
+    <h4>类型: JSON</h4>
+    <h4>说明: JWT令牌无效</h4>
+    <h4>字段:</h4>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>message</td>
+                <td>data</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>说明信息</td>
+                <td>无</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+                <td>null</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"JWT无效"</td>
+                <td>null</td>
+            </tr>
+        </tbody>
+    </table>
+    <hr>
+    <h4>状态码: 401</h4>
+    <h4>类型: JSON</h4>
+    <h4>说明: JWT令牌过期</h4>
+    <h4>字段:</h4>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>message</td>
+                <td>data</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>说明信息</td>
+                <td>无</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+                <td>null</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"JWT过期"</td>
+                <td>null</td>
+            </tr>
+        </tbody>
+    </table>
+    <hr>
+    <h4>状态码: 405</h4>
+    <h4>类型: JSON</h4>
+    <h4>说明: 请求方式不支持</h4>
+    <h4>字段:</h4>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>message</td>
+                <td>data</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>说明信息</td>
+                <td>无</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+                <td>null</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"请求方式错误"</td>
+                <td>null</td>
+            </tr>
+        </tbody>
+    </table>
+    <hr>
+    <h4>状态码: 500</h4>
+    <h4>类型: JSON</h4>
+    <h4>说明: 没有传PID或其他问题</h4>
+    <h4>字段:</h4>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>message</td>
+                <td>data</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>说明信息</td>
+                <td>无</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+                <td>null</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"服务器内部错误"</td>
+                <td>null</td>
+            </tr>
+        </tbody>
+    </table>
+    <br><br>
+    <div class="title" id="addNote">新增节点</div>
+    <h2>URL</h2>
+    <h4>127.0.0.1:8011/api/add-note</h4>
+
+    <h2>请求方法</h2>
+    <h4>PUT</h4>
+
+    <h2>请求头</h2>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>token</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>登陆时拿到的令牌</td>
+            </tr>
+            <tr>
+                <td>是否必须</td>
+                <td>True</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"eyJhbGciOiJIUzI1NiJ9....."</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>请求体</h2>
+    <h4>无</h4>
+
+    <h2>查询参数</h2>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>pid</td>
+                <td>title</td>
+                <td>content</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>PID</td>
+                <td>note标题</td>
+                <td>note主体</td>
+            </tr>
+            <tr>
+                <td>是否必须</td>
+                <td>True</td>
+                <td>True</td>
+                <td>True</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>int</td>
+                <td>String</td>
+                <td>String</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>0</td>
+                <td>"test title"</td>
+                <td>"test content"</td>
+            </tr>
+            </tr>
+        </tbody>
+    </table>
+    <h2>响应体</h2>
+    <h4>状态码: 200</h4>
+    <h4>类型: JSON</h4>
+    <h4>说明: 新增成功</h4>
+    <h4>字段:</h4>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>message</td>
+                <td>data</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>说明信息</td>
+                <td>无</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+                <td>null</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"成功添加节点"</td>
+                <td>null
+            </tr>
+            </tr>
+        </tbody>
+    </table>
+    <hr>
+    <h4>状态码: 401</h4>
+    <h4>类型: JSON</h4>
+    <h4>说明: JWT无效或被篡改</h4>
+    <h4>字段:</h4>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>message</td>
+                <td>data</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>说明信息</td>
+                <td>无</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+                <td>null</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"JWT无效"</td>
+                <td>null</td>
+            </tr>
+        </tbody>
+    </table>
+    <hr>
+    <h4>状态码: 401</h4>
+    <h4>类型: JSON</h4>
+    <h4>说明: JWT令牌过期</h4>
+    <h4>字段:</h4>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>message</td>
+                <td>data</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>说明信息</td>
+                <td>无</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+                <td>null</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"JWT过期"</td>
+                <td>null</td>
+            </tr>
+        </tbody>
+    </table>
+    <hr>
+    <h4>状态码: 405</h4>
+    <h4>类型: JSON</h4>
+    <h4>说明: 请求方式不支持</h4>
+    <h4>字段:</h4>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>message</td>
+                <td>data</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>说明信息</td>
+                <td>无</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+                <td>null</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"请求方式错误"</td>
+                <td>null</td>
+            </tr>
+        </tbody>
+    </table>
+    <hr>
+    <h4>状态码: 500</h4>
+    <h4>类型: JSON</h4>
+    <h4>说明: 可能请求参数不正确或服务器内部错误</h4>
+    <h4>字段:</h4>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>message</td>
+                <td>data</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>说明信息</td>
+                <td>无</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+                <td>null</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"服务器内部错误"</td>
+                <td>null</td>
+            </tr>
+        </tbody>
+    </table>
+    <br><br>
+    <div class="title" id="deleteNote">删除节点</div>
+    <h2>URL</h2>
+    <h4>127.0.0.1:8011/api/delete-note</h4>
+
+    <h2>请求方法</h2>
+    <h4>DELETE</h4>
+
+    <h2>请求头</h2>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>token</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>登陆时拿到的令牌</td>
+            </tr>
+            <tr>
+                <td>是否必须</td>
+                <td>True</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"eyJhbGciOiJIUzI1NiJ9....."</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>请求体</h2>
+    <h4>无</h4>
+
+    <h2>查询参数</h2>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>id</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>PID</td>
+            </tr>
+            <tr>
+                <td>是否必须</td>
+                <td>True</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>int</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>16</td>
+            </tr>
+            </tr>
+        </tbody>
+    </table>
+    <h2>响应体</h2>
+    <h4>状态码: 200</h4>
+    <h4>类型: JSON</h4>
+    <h4>说明: 删除成功</h4>
+    <h4>字段:</h4>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>message</td>
+                <td>data</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>说明信息</td>
+                <td>无</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+                <td>null</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"成功删除节点"</td>
+                <td>null
+            </tr>
+            </tr>
+        </tbody>
+    </table>
+    <hr>
+    <h4>状态码: 401</h4>
+    <h4>类型: JSON</h4>
+    <h4>说明: JWT无效或被篡改</h4>
+    <h4>字段:</h4>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>message</td>
+                <td>data</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>说明信息</td>
+                <td>无</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+                <td>null</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"JWT无效"</td>
+                <td>null</td>
+            </tr>
+        </tbody>
+    </table>
+    <hr>
+    <h4>状态码: 401</h4>
+    <h4>类型: JSON</h4>
+    <h4>说明: JWT令牌过期</h4>
+    <h4>字段:</h4>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>message</td>
+                <td>data</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>说明信息</td>
+                <td>无</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+                <td>null</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"JWT过期"</td>
+                <td>null</td>
+            </tr>
+        </tbody>
+    </table>
+    <hr>
+    <h4>状态码: 405</h4>
+    <h4>类型: JSON</h4>
+    <h4>说明: 请求方式不支持</h4>
+    <h4>字段:</h4>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>message</td>
+                <td>data</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>说明信息</td>
+                <td>无</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+                <td>null</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"请求方式错误"</td>
+                <td>null</td>
+            </tr>
+        </tbody>
+    </table>
+    <hr>
+    <h4>状态码: 500</h4>
+    <h4>类型: JSON</h4>
+    <h4>说明: 删除不存在的id或服务器内部错误</h4>
+    <h4>字段:</h4>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>message</td>
+                <td>data</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>说明信息</td>
+                <td>无</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+                <td>null</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"服务器内部错误"</td>
+                <td>null</td>
+            </tr>
+        </tbody>
+    </table>
+    <br><br>
+    <div class="title" id="updateNote">更新节点</div>
+    <h2>URL</h2>
+    <h4>127.0.0.1:8011/api/update-note</h4>
+
+    <h2>请求方法</h2>
+    <h4>PATCH</h4>
+
+    <h2>请求头</h2>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>token</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>登陆时拿到的令牌</td>
+            </tr>
+            <tr>
+                <td>是否必须</td>
+                <td>True</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"eyJhbGciOiJIUzI1NiJ9....."</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>请求体</h2>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>id</td>
+                <td>pid</td>
+                <td>title</td>
+                <td>content</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>要修改的note ID</td>
+                <td>修改后的note的PID</td>
+                <td>修改后的note标题</td>
+                <td>修改后的note主体</td>
+            </tr>
+            <tr>
+                <td>是否必须</td>
+                <td>True</td>
+                <td>True</td>
+                <td>True</td>
+                <td>True</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>int</td>
+                <td>int</td>
+                <td>String</td>
+                <td>String</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>16</td>
+                <td>0</td>
+                <td>"changed test"</td>
+                <td>"changed content"</td>
+            </tr>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>查询参数</h2>
+    <h4>无</h4>
+    <h2>响应体</h2>
+    <h4>状态码: 200</h4>
+    <h4>类型: JSON</h4>
+    <h4>说明: 更新成功</h4>
+    <h4>字段:</h4>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>message</td>
+                <td>data</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>说明信息</td>
+                <td>无</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+                <td>null</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"成功更新节点"</td>
+                <td>null
+            </tr>
+            </tr>
+        </tbody>
+    </table>
+    <hr>
+    <h4>状态码: 401</h4>
+    <h4>类型: JSON</h4>
+    <h4>说明: JWT无效或被篡改</h4>
+    <h4>字段:</h4>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>message</td>
+                <td>data</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>说明信息</td>
+                <td>无</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+                <td>null</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"JWT无效"</td>
+                <td>null</td>
+            </tr>
+        </tbody>
+    </table>
+    <hr>
+    <h4>状态码: 401</h4>
+    <h4>类型: JSON</h4>
+    <h4>说明: JWT令牌过期</h4>
+    <h4>字段:</h4>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>message</td>
+                <td>data</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>说明信息</td>
+                <td>无</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+                <td>null</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"JWT过期"</td>
+                <td>null</td>
+            </tr>
+        </tbody>
+    </table>
+    <hr>
+    <h4>状态码: 405</h4>
+    <h4>类型: JSON</h4>
+    <h4>说明: 请求方式不支持</h4>
+    <h4>字段:</h4>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>message</td>
+                <td>data</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>说明信息</td>
+                <td>无</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+                <td>null</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"请求方式错误"</td>
+                <td>null</td>
+            </tr>
+        </tbody>
+    </table>
+    <hr>
+    <h4>状态码: 500</h4>
+    <h4>类型: JSON</h4>
+    <h4>说明: 更新的id不存在或服务器内部错误</h4>
+    <h4>字段:</h4>
+    <table border="1">
+        <thead>
+            <tr>
+                <td></td>
+                <td>message</td>
+                <td>data</td>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td>说明</td>
+                <td>说明信息</td>
+                <td>无</td>
+            </tr>
+            <tr>
+                <td>类型</td>
+                <td>String</td>
+                <td>null</td>
+            </tr>
+            <tr>
+                <td>示例</td>
+                <td>"服务器内部错误"</td>
+                <td>null</td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+
+</html>

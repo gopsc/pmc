@@ -1,0 +1,54 @@
+:root {
+    --listMargin: 15%;
+}
+
+* {
+    margin: 0px;
+    padding: 0px;
+}
+
+.top-con {
+    display: flex;   
+}
+
+.top-con >*{
+    margin-left: 25px;
+    font-size: 20px;
+}
+
+.top-con div button {
+    font-size: 16px;
+}
+
+.main {
+    width: 100%;
+    height: 600px;
+    display: flex;
+}
+
+.feature-list {
+    width: 150px;
+    height: 100%;
+    background-color: #FFFFCC;
+    padding: 0px 10px 0px 10px;
+    overflow-y: scroll;
+}
+
+.feature-list .item {
+    width: 100%;
+    height: 50px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #0066cc;
+    color: #fff;
+    font-size: 18px;
+    font-weight: bold;
+    margin-top: var(--listMargin);
+    cursor: pointer;
+}
+
+.pages {
+    width: 100%;
+    height: 100%;
+}

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>management page</title>
+    <link rel="icon" href="data:;base64,=">
+    <link rel="stylesheet" href="{{ url_for('static', filename='mgmt.css') }}">
+
+    <script>
+        window.onload = () => {
+            const featureList = [
+                {
+                    name: "进程",
+                    url: "{{ url_for('process.process') }}"
+                },
+                {
+                    name: "模块",
+                    url: "{{ url_for('module.module') }}"
+                },
+                // {
+                //     name: "日志",
+                //     url: "{{ url_for('log.log') }}"
+                // },
+                {
+                    name: "用户",
+                    url: "{{ url_for('user.user') }}"
+                }
+            ]
+
+            const featureListEle = document.getElementById("feature-list")
+            for (let i = 0; i < featureList.length; i++) {
+                // get name and url
+                const name = featureList[i].name
+                const url = featureList[i].url
+
+                // Create a item
+                let listItemEle = document.createElement("div")
+                listItemEle.setAttribute("class", "item")
+                listItemEle.innerText = name
+                listItemEle.setAttribute("onclick", `switchPage('${url}')`)
+
+                // append element into feature list
+                featureListEle.append(listItemEle)
+            }
+
+            // set default page in iframe
+            const DEFAULT_PAGE = "<!DOCTYPE html><h1>请在左侧选择功能</h1>"
+            document.getElementById("page").contentDocument.write(DEFAULT_PAGE)
+        }
+    </script>
+</head>
+
+<body>
+    <div class="top-con">
+        <div id="current-user">当前用户: {{ username }}</div>
+        <div id="current-role">当前角色: {{ role }}</div>
+        <div class="button-con">
+            <button onclick="logout()">退出登陆</button>
+        </div>
+    </div>
+    <div class="main">
+        <div class="feature-list" id="feature-list"></div>
+        <div class="pages">
+            <iframe id="page" src="" frameborder="1" width="100%" height="100%"></iframe>
+        </div>
+    </div>
+
+    <script>
+        // change the iframe's url
+        function switchPage(url) {
+            const page = document.getElementById("page")
+            page.setAttribute("src", url)
+        }
+
+        function logout() {
+            if (!confirm("确认退出?")) {
+                return
+            }
+            document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            window.location = "/"
+        }
+    </script>
+</body>
+
+</html>
