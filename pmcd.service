@@ -1,0 +1,10 @@
+[Unit]
+Description=PMC Http Interfaces
+After=network.target
+
+[Service]
+User=qing
+Group=qing
+ExecStart=pmc -i /etc/pmc/init.txt
+[Install]
+WantedBy=multi-user.target

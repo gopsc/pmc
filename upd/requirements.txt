@@ -1,9 +1,0 @@
-Flask
-flask_cors
-waitress
-cryptography
-GitPython
-paramiko
-setuptools
-PyJWT
-requests
