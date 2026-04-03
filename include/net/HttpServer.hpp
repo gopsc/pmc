@@ -53,11 +53,19 @@ using MiddlewareHandler = std::function<bool(
 class HttpServer {
 public:
     /**
-     * @brief 构造函数
+     * @brief 构造函数（监听所有接口）
      * @param port 监听端口
      * @param threads 工作线程数
      */
     explicit HttpServer(unsigned short port, unsigned int threads = 1);
+    
+    /**
+     * @brief 构造函数（指定监听地址）
+     * @param address 监听IP地址（如 "0.0.0.0" 或 "127.0.0.1"）
+     * @param port 监听端口
+     * @param threads 工作线程数
+     */
+    explicit HttpServer(const std::string& address, unsigned short port, unsigned int threads = 1);
     
     /**
      * @brief 析构函数
@@ -127,6 +135,12 @@ public:
     unsigned short getPort() const;
     
     /**
+     * @brief 获取服务器监听地址
+     * @return 服务器监听地址
+     */
+    std::string getAddress() const;
+    
+    /**
      * @brief 运行服务器（阻塞调用）- 从原始版本继承
      */
     void run();
@@ -142,6 +156,7 @@ private:
     class Listener;
     
     // 服务器配置
+    std::string address_;
     unsigned short port_;
     unsigned int threads_;
     std::atomic<bool> running_{false};

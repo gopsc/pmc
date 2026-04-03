@@ -724,7 +724,7 @@ int main(int argc, char** argv) {
 
 	else if (vm.count("serve")) {
 		int port = vm["serve"].as<int>();
-		server = std::make_unique<pmc::net::HttpServer>(port, 4);
+		server = std::make_unique<pmc::net::HttpServer>("127.0.0.1", port, 4);
 		ProcessManagerService pmService(*server);
 		pmService.registerRoutes();
 		server->start();

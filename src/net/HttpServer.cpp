@@ -112,9 +112,18 @@ private:
     HttpServer* server_;
 };
 
-// HttpServer实现
+// HttpServer实现 - 新构造函数（监听所有接口）
 HttpServer::HttpServer(unsigned short port, unsigned int threads)
-    : port_(port), threads_(threads), 
+    : address_("0.0.0.0"), port_(port), threads_(threads), 
+      ioc_(std::make_unique<asio::io_context>(threads)) {
+    if (!ioc_) {
+        throw std::runtime_error("Failed to create io_context");
+    }
+}
+
+// HttpServer实现 - 新构造函数（指定监听地址）
+HttpServer::HttpServer(const std::string& address, unsigned short port, unsigned int threads)
+    : address_(address), port_(port), threads_(threads), 
       ioc_(std::make_unique<asio::io_context>(threads)) {
     if (!ioc_) {
         throw std::runtime_error("Failed to create io_context");
@@ -131,8 +140,11 @@ void HttpServer::start() {
     }
     
     try {
+        // 创建端点（使用指定的地址和端口）
+        asio::ip::address ip_address = asio::ip::make_address(address_);
+        tcp::endpoint endpoint(ip_address, port_);
+        
         // 创建监听器
-        tcp::endpoint endpoint(tcp::v4(), port_);
         listener_ = std::make_shared<Listener>(*ioc_, endpoint, this);
         if (!listener_) {
             throw std::runtime_error("Failed to create listener");
@@ -152,7 +164,8 @@ void HttpServer::start() {
             });
         }
         
-        std::cout << "HTTP Server started on port " << port_ << " with " << threads_ << " threads" << std::endl;
+        std::cout << "HTTP Server started on " << address_ << ":" << port_ 
+                  << " with " << threads_ << " threads" << std::endl;
     } catch (const std::exception& e) {
         std::cerr << "Failed to start server: " << e.what() << std::endl;
         running_ = false;
@@ -212,6 +225,10 @@ unsigned short HttpServer::getPort() const {
     return port_;
 }
 
+std::string HttpServer::getAddress() const {
+    return address_;
+}
+
 void HttpServer::run() {
     start();
     if (ioc_) {
@@ -221,6 +238,7 @@ void HttpServer::run() {
 
 void HttpServer::showStatus() const {
     std::cout << "=== HTTP Server Status ===" << std::endl;
+    std::cout << "Address: " << address_ << std::endl;
     std::cout << "Port: " << port_ << std::endl;
     std::cout << "Threads: " << threads_ << std::endl;
     std::cout << "Running: " << (running_ ? "Yes" : "No") << std::endl;
