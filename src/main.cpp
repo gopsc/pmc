@@ -52,9 +52,9 @@ void pmc_init(po::variables_map&);  /* 初始化pmc并行机器 */
 void pmc_serve(po::variables_map&); /* pmc的http伺服器模式 */
 void parse_self_init_list(std::string&); /* 解析自启动列表文件 */
 void parse_data_from_mq(std::string&);   /* 解析消息队列收到的消息 */
-int send_start_and_recv_pipe(const std::string& name_mq, const std::string& exec); /* 发送启动命令并且接收回复 */
-int send_list_and_recv_pipe(const std::string& name_mq); /* 发送启动命令并且接收回复 */
-int send_kill_and_recv_pipe(const std::string& name_mq, const int kill); /* 发送删除命令并且接收回复 */
+std::string send_start_and_recv_pipe(const std::string& name_mq, const std::string& exec); /* 发送启动命令并且接收回复 */
+std::string send_list_and_recv_pipe(const std::string& name_mq); /* 发送启动命令并且接收回复 */
+std::string send_kill_and_recv_pipe(const std::string& name_mq, const int kill); /* 发送删除命令并且接收回复 */
 
 
 //-------------------------------------------------------------
@@ -662,8 +662,7 @@ std::string ProcessManagerService::listProcesses(const std::string& target)
     if (target == "")
         return pmc_mtd::list();
     else {
-        auto r = send_list_and_recv_pipe(target);
-        return r ? "OK" : "ERR";
+        return send_list_and_recv_pipe(target);
     }
 }
 
@@ -672,8 +671,7 @@ std::string ProcessManagerService::execCommand(const std::string& command, const
     if (target == "")
         return pmc_mtd::exec(command) ? "OK" :"ERR";
     else {
-        auto r =send_start_and_recv_pipe(target, command); /* 发送启动命令并且接收回复 */
-        return r ? "OK" : "ERR";
+        return send_start_and_recv_pipe(target, command); /* 发送启动命令并且接收回复 */
     }
 }
 
@@ -682,7 +680,7 @@ bool ProcessManagerService::killProcess(int pid, const std::string& target)
     if (target == "")
         return pmc_mtd::kill(pid);
     else
-        return send_kill_and_recv_pipe(target, pid);
+        return send_kill_and_recv_pipe(target, pid) == "OK";
 }
 }
 
@@ -792,18 +790,24 @@ int main(int argc, char** argv) {
 	if ( vm.count("send") && vm.count("exec")) {
 		auto send = vm["send"].as<std::string>();
 		auto exec = vm["exec"].as<std::string> ();
-		return send_start_and_recv_pipe(send, exec);
+		auto msg =  send_start_and_recv_pipe(send, exec);
+		std::cout << msg << std::endl;
+		return 0;
 	}
 
 	else if ( vm.count("send") && vm.count("list")){
 		auto send = vm["send"].as<std::string> ();
-		return send_list_and_recv_pipe(send);
+		auto msg = send_list_and_recv_pipe(send);
+		std::cout << msg << std::endl;
+		return 0;
 	}
 
 	else if (vm.count("send") && vm.count("kill")) {
 		auto send = vm["send"].as<std::string> ();
 		auto kill = vm["kill"].as<int>();
-		return send_kill_and_recv_pipe(send, kill);
+		auto msg =  send_kill_and_recv_pipe(send, kill);
+		std::cout << msg << std::endl;
+		return 0;
 	}
 
 	/* 初始化日志模块 */
@@ -965,7 +969,7 @@ catch (std::exception &exp) {
 
 
 /* 向pmc的消息队列发送启动命令并且从管道接收回复 */
-int send_start_and_recv_pipe(const std::string& name_mq, const std::string& exec)
+std::string send_start_and_recv_pipe(const std::string& name_mq, const std::string& exec)
 try {
 
 	auto name_pipe = std::to_string(getpid());
@@ -981,23 +985,22 @@ try {
 	auto pipe = Pipe(name_pipe, Pipe::CREATOR); /* FIXME: 创建管道文件到/tmp下面 */
 	if (!pipe.openForRead(true)) {
 		std::cerr << "Failed to open pipe" << std::endl;
-		return 1;
+		return "ERR";
 	}
 
 	mq.send(jsonstr);
 	if (!pipe.waitForRead(1, 0)) {
 		std::cerr << "Pipe Read Timeout" << std::endl;
-		return 1;
+		return "ERR";
 	}
 
 	std::string res = "";
 	if (pipe.readPipe(&res) < 0) {
 		std::cerr << "Failed to read pipe" << std::endl;
-		return 1;
+		return "ERR";
 	}
 
-	std::cout << res << std::endl;
-	return 0;
+	return res;
 }
 
 //catch (boost::interprocess::interprocess_exception &exp)  {
@@ -1006,16 +1009,17 @@ try {
 //}
 
 catch (std::exception &exp) {
-    std::cerr << "异常类型: " << typeid(exp).name() << std::endl;
-    std::cerr << "异常信息: " << exp.what() << std::endl;
-    return 1;
+    std::cerr << "Exception at:   send_start_and_recv_pipe()" << std::endl;
+    std::cerr << "Exception type: " << typeid(exp).name() << std::endl;
+    std::cerr << "Exception info: " << exp.what() << std::endl;
+    return "ERR";
 }
 
 
 
 
 /* 向目标子系统发送列举命令并收集结果 */
-int send_list_and_recv_pipe(const std::string& name_mq)
+std::string send_list_and_recv_pipe(const std::string& name_mq)
 try {
 
 	auto name_pipe = std::to_string(getpid());
@@ -1029,23 +1033,24 @@ try {
 
 	if (!pipe.openForRead(true)) {
 		std::cerr << "Failed to open pipe" << std::endl;
-		return 1;
+		return "ERR";
 	}
 
 
 	mq.send(jsonstr);
 	if (!pipe.waitForRead(1, 0)) {
 		std::cerr << "Pipe Read Timeout" << std::endl;
-		return 1;
+		return "ERR";
 	}
 
 	std::string res = "";
 	if (pipe.readPipe(&res) < 0) {
 		std::cerr << "Failed to read pipe" << std::endl;
-		return 1;
+		return "ERR";
 	}
-	std::cout << res << std::endl;
-	return 0;
+
+
+	return res;
 
 }
 
@@ -1055,15 +1060,16 @@ try {
 //}
 
 catch (std::exception &exp) {
-    std::cerr << "异常类型: " << typeid(exp).name() << std::endl;
-    std::cerr << "异常信息: " << exp.what() << std::endl;
-    return 1;
+    std::cerr << "Exception at:   send_list_and_recv_pipe()" << std::endl;
+    std::cerr << "Exception type: " << typeid(exp).name() << std::endl;
+    std::cerr << "Exception info: " << exp.what() << std::endl;
+    return "ERR";
 }
 
 
 
 /* 删除操作调用 */
-int send_kill_and_recv_pipe(const std::string& name_mq, const int kill)
+std::string send_kill_and_recv_pipe(const std::string& name_mq, const int kill)
 try{
 
 	auto name_pipe = std::to_string(getpid());
@@ -1078,24 +1084,21 @@ try{
 	auto pipe = Pipe(name_pipe, Pipe::CREATOR);
 	if (!pipe.openForRead(true)) {
 		std::cerr << "Failed to open pipe" << std::endl;
-		return 1;
+		return "ERR";
 	}
 
 	mq.send(jsonstr);
 	if (!pipe.waitForRead(1, 0)) {
 		std::cerr << "Pipe Read Timeout" << std::endl;
-		return 1;
+		return "ERR";
 	}
 
 	std::string res = "";
 	if (pipe.readPipe(&res) < 0) {
 		std::cerr << "Failed to read pipe" << std::endl;
-		return 1;
+		return "ERR";
 	}
-	else  {
-		std::cout << res << std::endl;
-		return 0;
-	}
+	else return res;
 
 }
 
@@ -1108,7 +1111,8 @@ try{
 
 /* 这些函数抛出异常后可能导致管道文件残留 */
 catch (std::exception &exp) {
-    std::cerr << "异常类型: " << typeid(exp).name() << std::endl;
-    std::cerr << "异常信息: " << exp.what() << std::endl;
-    return 1;
+    std::cerr << "Exception at:   send_kill_and_recv_pipe()" << std::endl;
+    std::cerr << "Exception type: " << typeid(exp).name() << std::endl;
+    std::cerr << "Exception info: " << exp.what() << std::endl;
+    return "ERR";
 }
