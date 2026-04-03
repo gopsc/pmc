@@ -7,6 +7,7 @@
  *  直接子系统调用，或者启动一个pmc子系统。
  * ===============================================
  */
+#include <functional>
 #include <filesystem>
 #include <iostream>
 #include <string> 
@@ -17,7 +18,8 @@
 #include <vector>
 #include <cstddef>
 #include <csignal> /* 注册信号以优雅退出 */
-#include <functional>
+#include <cctype>
+#include <iomanip>
 #include <unistd.h>
 #include <sys/types.h>
 #include <boost/json.hpp>
@@ -298,6 +300,27 @@ boost::property_tree::ptree parseJsonToPtree(const std::string& jsonStr) {
     return pt;
 }
 
+static std::string url_decode(const std::string& str) {
+    std::string result;
+    std::istringstream iss(str);
+    char ch;
+    
+    while (iss.get(ch)) {
+        if (ch == '%') {
+            int hex;
+            if (iss >> std::hex >> hex) {
+                result += static_cast<char>(hex);
+            }
+        } else if (ch == '+') {
+            result += ' ';
+        } else {
+            result += ch;
+        }
+    }
+    return result;
+}
+/* ============================================================== */
+
 namespace qing {
 /**
  * @brief 进程托管服务类
@@ -425,15 +448,15 @@ std::string ProcessManagerService::buildJsonResponse(bool success, const std::st
 std::string ProcessManagerService::getTarget(const std::unordered_map<std::string, std::string>& params) {
     auto it = params.find("target");
     if (it != params.end()) {
-        return it->second;
+        return url_decode(it->second); // <--- 这里
     }
-    return "";  // 空字符串表示本机
+    return "";
 }
 
 std::string ProcessManagerService::getExecCommand(const std::unordered_map<std::string, std::string>& params) {
     auto it = params.find("command");
     if (it != params.end()) {
-        return it->second;
+        return url_decode(it->second); // <--- 这里
     }
     return "";
 }
@@ -441,7 +464,8 @@ std::string ProcessManagerService::getExecCommand(const std::unordered_map<std::
 int ProcessManagerService::getPid(const std::unordered_map<std::string, std::string>& params) {
     auto it = params.find("pid");
     if (it != params.end()) {
-        return std::stoi(it->second);
+        std::string decoded = url_decode(it->second); // <--- 这里
+        return std::stoi(decoded);
     }
     return -1;
 }
