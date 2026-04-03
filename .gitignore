@@ -4,12 +4,10 @@ users/
 *.pem
 build/
 build_*/
-dataSet/
-dataSet*/
-resSet/
 nn
 camera
 lci
+pmc
 
 # ide
 .vscode/

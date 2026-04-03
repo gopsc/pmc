@@ -1,5 +1,5 @@
-#ifndef HTTPSERVER_MERGED_HPP
-#define HTTPSERVER_MERGED_HPP
+#ifndef HTTPSERVER_HPP
+#define HTTPSERVER_HPP
 
 #include <boost/asio.hpp>
 #include <boost/beast.hpp>
@@ -175,4 +175,4 @@ private:
 } // namespace net
 } // namespace pmc
 
-#endif // HTTPSERVER_MERGED_HPP
+#endif // HTTPSERVER_HPP

@@ -20,11 +20,13 @@
 #include <functional>
 #include <unistd.h>
 #include <sys/types.h>
+#include <boost/json.hpp>
+#include <boost/process.hpp> // libboost-dev
 #include <boost/program_options.hpp> /* 解析命令行参数 */
 #include <boost/interprocess/ipc/message_queue.hpp>
-#include <boost/process.hpp> // libboost-dev
-#include <boost/json.hpp>
-//#include "net/Http.hpp"
+#include <boost/property_tree/ptree.hpp>
+#include "boost/property_tree/json_parser.hpp"
+#include "net/HttpServer.hpp"
 #include "logs/Logger.hpp"
 #include "th/Thread.hpp" /* 可控线程类 */
 #include "th/Cv_wait.hpp" /* 通过条件变量进行等待 */
@@ -156,7 +158,6 @@ void init_thread() {
 }
 
 
-
 /*-------------------------------------------------------------------------*/
 Cv_wait cv =  Cv_wait();  /* 条件变量的等待机制让主程序能够等待中断信号的产生 */
 
@@ -176,7 +177,7 @@ public:
 	/* CREATE PROCESS - 创建进程
 	 *
 	 * 需要输入启动命令 */
-	void crtp(std::string& cmd) try {
+	void crtp(const std::string& cmd) try {
 		auto pt = std::make_shared<ProcessTask>(cmd);
 		pt->start();
 		pool.push_back(pt);
@@ -242,11 +243,358 @@ private:
 PPool ppool;
 
 
+/*-------------------------------------------------------------------------*/
+namespace qing {
+namespace pmc_mtd {
+
+auto list() -> std::string {
+    boost::json::array processes;
+    
+    for (int i = 0; i < ppool.size(); ++i) {
+        processes.push_back({
+            {"index", i},
+            {"pid", ppool[i].pid()},
+            {"status", ppool[i].check()}
+        });
+    }
+    
+    return boost::json::serialize(processes);
+}
+
+auto kill(const int pid) -> bool {
+	for (int i=0; i<ppool.size(); ++i)
+		if ( ppool[i].pid() == pid) {
+			ppool.kill(i);
+			return true;
+		}
+	return false;
+}
+
+auto exec(const std::string& cmd) -> bool try {
+	ppool.clr();
+	ppool.crtp(cmd);
+	return true;
+}
+
+catch(std::exception& exp) {
+	return false;
+}
+
+}
+}
+
+
+
+
+boost::property_tree::ptree parseJsonToPtree(const std::string& jsonStr) {
+    boost::property_tree::ptree pt;
+    try {
+        std::stringstream ss(jsonStr);
+        boost::property_tree::read_json(ss, pt);
+    } catch (const boost::property_tree::json_parser_error& e) {
+        // 解析失败处理
+        std::cerr << "JSON parse error: " << e.what() << std::endl;
+    }
+    return pt;
+}
+
+namespace qing {
+/**
+ * @brief 进程托管服务类
+ *
+ * 提供进程的列表、执行和终止功能
+ */
+class ProcessManagerService {
+public:
+    /**
+     * @brief 构造函数
+     * @param server HTTP服务器引用
+     */
+    explicit ProcessManagerService(pmc::net::HttpServer& server);
+
+    /**
+     * @brief 注册所有进程管理相关的路由
+     */
+    void registerRoutes();
+
+private:
+    pmc::net::HttpServer& server_;
+
+    /**
+     * @brief 解析请求体中的JSON数据
+     * @param body 请求体字符串
+     * @return JSON解析后的属性树
+     */
+    boost::property_tree::ptree parseJsonBody(const std::string& body);
+
+    /**
+     * @brief 构建JSON响应
+     * @param success 是否成功
+     * @param message 消息
+     * @param data 附加数据
+     * @return JSON字符串
+     */
+    std::string buildJsonResponse(bool success, const std::string& message,
+                                   const boost::property_tree::ptree& data = boost::property_tree::ptree());
+
+    /**
+     * @brief 从请求中提取target参数
+     * @param params 查询参数
+     * @return target值（空字符串表示本机）
+     */
+    std::string getTarget(const std::unordered_map<std::string, std::string>& params);
+
+    /**
+     * @brief 从请求中提取exec参数
+     * @param params 查询参数
+     * @return 要执行的指令
+     */
+    std::string getExecCommand(const std::unordered_map<std::string, std::string>& params);
+
+    /**
+     * @brief 从请求中提取kill参数
+     * @param params 查询参数
+     * @return 目标进程号
+     */
+    int getPid(const std::unordered_map<std::string, std::string>& params);
+
+    // POST方法处理器
+    http::response<http::string_body> handleList(
+        const http::request<http::string_body>& req,
+        const std::unordered_map<std::string, std::string>& params);
+
+    http::response<http::string_body> handleExec(
+        const http::request<http::string_body>& req,
+        const std::unordered_map<std::string, std::string>& params);
+
+    http::response<http::string_body> handleKill(
+        const http::request<http::string_body>& req,
+        const std::unordered_map<std::string, std::string>& params);
+
+    // 内部实现函数（留空）
+    std::string listProcesses(const std::string& target);
+    std::string execCommand(const std::string& command, const std::string& target);
+    bool killProcess(int pid, const std::string& target);
+};
+
+
+ProcessManagerService::ProcessManagerService(pmc::net::HttpServer& server)
+    : server_(server) {
+}
+
+void ProcessManagerService::registerRoutes() {
+    // 注册POST路由
+    server_.post("/list", [this](const auto& req, const auto& params) {
+        return this->handleList(req, params);
+    });
+
+    server_.post("/exec", [this](const auto& req, const auto& params) {
+        return this->handleExec(req, params);
+    });
+
+    server_.post("/kill", [this](const auto& req, const auto& params) {
+        return this->handleKill(req, params);
+    });
+}
+
+boost::property_tree::ptree ProcessManagerService::parseJsonBody(const std::string& body) {
+    boost::property_tree::ptree pt;
+    try {
+        std::stringstream ss(body);
+        boost::property_tree::read_json(ss, pt);
+    } catch (...) {
+        // JSON解析失败，返回空树
+    }
+    return pt;
+}
+
+std::string ProcessManagerService::buildJsonResponse(bool success, const std::string& message,
+                                                      const boost::property_tree::ptree& data) {
+    boost::property_tree::ptree response;
+    response.put("success", success);
+    response.put("message", message);
+    if (!data.empty()) {
+        response.add_child("data", data);
+    }
+
+    std::stringstream ss;
+    boost::property_tree::write_json(ss, response);
+    return ss.str();
+}
+
+std::string ProcessManagerService::getTarget(const std::unordered_map<std::string, std::string>& params) {
+    auto it = params.find("target");
+    if (it != params.end()) {
+        return it->second;
+    }
+    return "";  // 空字符串表示本机
+}
+
+std::string ProcessManagerService::getExecCommand(const std::unordered_map<std::string, std::string>& params) {
+    auto it = params.find("command");
+    if (it != params.end()) {
+        return it->second;
+    }
+    return "";
+}
+
+int ProcessManagerService::getPid(const std::unordered_map<std::string, std::string>& params) {
+    auto it = params.find("pid");
+    if (it != params.end()) {
+        return std::stoi(it->second);
+    }
+    return -1;
+}
+
+http::response<http::string_body> ProcessManagerService::handleList(
+    const http::request<http::string_body>& req,
+    const std::unordered_map<std::string, std::string>& params) {
+
+    http::response<http::string_body> res;
+    res.version(req.version());
+    res.set(http::field::content_type, "application/json");
+
+    try {
+        std::string target = getTarget(params);
+
+        // TODO: 实现进程列表逻辑
+        std::string result = listProcesses(target);
+
+        boost::property_tree::ptree data = parseJsonToPtree(result);
+        // TODO: 将result解析为data
+
+        res.result(http::status::ok);
+        res.body() = buildJsonResponse(true, "Process list retrieved successfully", data);
+    } catch (const std::exception& e) {
+        res.result(http::status::internal_server_error);
+        res.body() = buildJsonResponse(false, std::string("Error: ") + e.what());
+    }
+
+    res.prepare_payload();
+    return res;
+}
+
+http::response<http::string_body> ProcessManagerService::handleExec(
+    const http::request<http::string_body>& req,
+    const std::unordered_map<std::string, std::string>& params) {
+
+    http::response<http::string_body> res;
+    res.version(req.version());
+    res.set(http::field::content_type, "application/json");
+
+    try {
+        std::string target = getTarget(params);
+        std::string command = getExecCommand(params);
+
+        if (command.empty()) {
+            // 尝试从POST body中获取command
+            auto body_json = parseJsonBody(req.body());
+            command = body_json.get<std::string>("command", "");
+        }
+
+        if (command.empty()) {
+            res.result(http::status::bad_request);
+            res.body() = buildJsonResponse(false, "Missing required parameter: command");
+            res.prepare_payload();
+            return res;
+        }
+
+        // TODO: 实现命令执行逻辑
+        std::string result = execCommand(command, target);
+
+        boost::property_tree::ptree data;
+        data.put("command", command);
+        data.put("output", result);
+
+        res.result(http::status::ok);
+        res.body() = buildJsonResponse(true, "Command executed successfully", data);
+    } catch (const std::exception& e) {
+        res.result(http::status::internal_server_error);
+        res.body() = buildJsonResponse(false, std::string("Error: ") + e.what());
+    }
+
+    res.prepare_payload();
+    return res;
+}
+
+http::response<http::string_body> ProcessManagerService::handleKill(
+    const http::request<http::string_body>& req,
+    const std::unordered_map<std::string, std::string>& params) {
+
+    http::response<http::string_body> res;
+    res.version(req.version());
+    res.set(http::field::content_type, "application/json");
+
+    try {
+        std::string target = getTarget(params);
+        int pid = getPid(params);
+
+        if (pid <= 0 && !req.body().empty()) {
+            // 尝试从POST body中获取pid
+            auto body_json = parseJsonBody(req.body());
+            pid = body_json.get<int>("pid", -1);
+        }
+
+        if (pid <= 0) {
+            res.result(http::status::bad_request);
+            res.body() = buildJsonResponse(false, "Missing or invalid parameter: pid");
+            res.prepare_payload();
+            return res;
+        }
+
+        // TODO: 实现进程终止逻辑
+        bool success = killProcess(pid, target);
+
+        if (success) {
+            boost::property_tree::ptree data;
+            data.put("pid", pid);
+            res.result(http::status::ok);
+            res.body() = buildJsonResponse(true, "Process terminated successfully", data);
+        } else {
+            res.result(http::status::internal_server_error);
+            res.body() = buildJsonResponse(false, "Failed to terminate process");
+        }
+    } catch (const std::exception& e) {
+        res.result(http::status::internal_server_error);
+        res.body() = buildJsonResponse(false, std::string("Error: ") + e.what());
+    }
+
+    res.prepare_payload();
+    return res;
+}
+
+// 以下是实现占位符（留空）
+std::string ProcessManagerService::listProcesses(const std::string& target) {
+    // TODO: 实现进程列表逻辑
+
+    return pmc_mtd::list();
+}
+
+std::string ProcessManagerService::execCommand(const std::string& command, const std::string& target) {
+    // TODO: 实现命令执行逻辑
+    // 如果target为空，在本机执行
+    // 否则在目标服务器执行
+    return pmc_mtd::exec(command) ? "OK" :"ERR";
+}
+
+bool ProcessManagerService::killProcess(int pid, const std::string& target) {
+    // TODO: 实现进程终止逻辑
+    
+    return pmc_mtd::kill(pid);
+}
+}
+
+
+std::unique_ptr<pmc::net::HttpServer> server;
+/*-------------------------------------------------------------------------*/
+
+
 /* 捕获中断信号，结束线程并且退出 */
 void signalHandler(int signum)
 {
     LOG_INFO("收到终止信号，准备停止服务器...");
     cv.WakeCv();    /* 唤醒条件信号即关闭程序 */
+    if (server) server->stop();
 }
 
 /*----SIGNAL ACTION----*/
@@ -317,7 +665,8 @@ int main(int argc, char** argv) {
 	("list", "list process all run")
 	("kill",   po::value<int>(),         "kill a process")
 	/********* 子系统启动 ********/
-	("init,i", po::value<std::string>(), "self-init list");
+	("init,i", po::value<std::string>(), "self-init list")
+	("serve",  po::value<int>(),         "Run as http server");
 
     /* 参数变量映射关系 */
     po::variables_map vm;
@@ -345,6 +694,7 @@ int main(int argc, char** argv) {
     /* 初始化OpenSSL */
 	//OpenSSL_add_all_algorithms();
 	//ERR_load_crypto_strings();
+	
 
 	if ( vm.count("send") && vm.count("exec")) {
 		return send_start_and_recv_pipe(vm);
@@ -361,8 +711,10 @@ int main(int argc, char** argv) {
 	/* 初始化日志模块 */
 	Logger::getInstance().init(LogLevel::DEBUG, true);
 
+	
+	if (!vm.count("serve"))
 	/* pmc初始化函数 */
-	pmc_init(vm);
+		pmc_init(vm);
 
     /* 清理 OpenSSL 资源 */
 	//EVP_cleanup();
@@ -370,17 +722,34 @@ int main(int argc, char** argv) {
 
     /**********************************************/
 
-    /*
-     * 等待
-     *
-     * 触发器在信号处理那里
-     */
-    cv.Wait();
+	else if (vm.count("serve")) {
+		int port = vm["serve"].as<int>();
+		server = std::make_unique<pmc::net::HttpServer>(port, 4);
+		ProcessManagerService pmService(*server);
+		pmService.registerRoutes();
+		server->start();
 
-    /* 主线程被唤醒 */
-    for (auto& task: taskPool) {
-        task->stop();
-    }
+		std::cout << "Process Manager Service running on port " << port << std::endl;
+		std::cout << "Available endpoints:" << std::endl;
+		std::cout << "  POST /list?target=optional" << std::endl;
+		std::cout << "  POST /exec?command=ls&target=optional" << std::endl;
+		std::cout << "  POST /kill?pid=1234&target=optional" << std::endl;
+
+		server->run();
+	}
+	
+	
+	/*
+	 * 等待
+	 *
+	 * 触发器在信号处理那里
+	 */
+	else cv.Wait();
+
+	/* 主线程被唤醒 */
+	for (auto& task: taskPool) {
+		task->stop();
+	}
 }
 
 /*-----------------------------------------------------------------------------*/
@@ -541,6 +910,9 @@ int pmc_init(po::variables_map& vm) {
 		std::string path = vm["init"].as<std::string>();
 		parse_self_init_list(path);
 	}
+
+
+
 	/*-------------------*/
 	auto ttt = std::make_shared<Tttask> (MSGLEN, MSGCNT,
 		[](const char *data) { /* 处理收到的数据 */
@@ -611,13 +983,7 @@ try {
 	 *
 	 */
 	if (typ == "list") {
-		std::string  msg = "";
-		for (int i=0; i< ppool.size(); ++i) {
-			if (msg !="") msg += "\n";
-			msg += std::to_string(i);		msg += "\t";
-			msg += std::to_string(ppool[i].pid());	msg += "\t";
-			msg += ppool[i].check();
-		}
+		auto msg = pmc_mtd::list();
 		pipe.writePipe(msg);
 		return;
 	}
@@ -633,14 +999,8 @@ try {
 	 */
 	else if (typ == "kill") {
 		int trg = jv.at("kill").as_int64();
-		for (int i=0; i<ppool.size(); ++i)
-			if ( ppool[i].pid() == trg) {
-				ppool.kill(i);
-				std::string msg = "OK";
-				pipe.writePipe(msg);
-				return;
-			}
-		std::string msg = "Nope";
+		auto flag = pmc_mtd::kill(trg);
+		std::string msg = flag ? "OK" : "Nope";
 		pipe.writePipe(msg);
 		return;
 	}
@@ -656,9 +1016,7 @@ try {
 	 */
 	else if (typ == "exec"){
 		std::string cmd = jv.at("exec").as_string().c_str();
-		ppool.clr();
-		ppool.crtp(cmd);
-		std::string msg = "OK";
+		std::string msg = (pmc_mtd::exec(cmd)) ? "OK" : "ERR";
 		pipe.writePipe(msg);
 		return;
 	}

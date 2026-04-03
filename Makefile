@@ -26,7 +26,7 @@ $(shell mkdir -p $(BUILD_DIR))
 #	$(CPP)  -shared -fPIC $^ $(LIBS) -o $@
 
 all:
-pmc: $(BUILD_DIR)/main.o $(BUILD_DIR)/fsm.o $(BUILD_DIR)/Thread.o
+pmc: $(BUILD_DIR)/main.o $(BUILD_DIR)/fsm.o $(BUILD_DIR)/Thread.o $(BUILD_DIR)/HttpServer.o
 	$(CPP) $^ $(LIBS) -o $@
 
 icl:
@@ -132,7 +132,9 @@ $(BUILD_DIR)/Thread.o: src/th/Thread.cpp
 $(BUILD_DIR)/LciTask.o: src/LciTask.cpp
 	$(CPP) $(CPPFLAGS) -c $^ $(INCS) -o $@
 
-# WebSocket客户端编译规则
+$(BUILD_DIR)/HttpServer.o: src/net/HttpServer.cpp
+	$(CPP) $(CPPFLAGS) -c $^ $(INCS) -o $@
+
 $(BUILD_DIR)/WebSocketClient.o: src/net/WebSocketClient.cpp
 	$(CPP) $(CPPFLAGS) -c $^ $(INCS) -o $@
 
