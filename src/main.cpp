@@ -23,162 +23,196 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <boost/json.hpp>
-#include <boost/process.hpp> // libboost-dev
+#include <boost/process.hpp>
 #include <boost/program_options.hpp> /* 解析命令行参数 */
 #include <boost/interprocess/ipc/message_queue.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include "boost/property_tree/json_parser.hpp"
 #include "net/HttpServer.hpp"
 #include "logs/Logger.hpp"
-#include "th/Thread.hpp" /* 可控线程类 */
-#include "th/Cv_wait.hpp" /* 通过条件变量进行等待 */
+#include "th/Thread.hpp"
+#include "th/Cv_wait.hpp"
 #include "th/ITask.hpp"
 #include "tt/Mq.h"
 #include "tt/Pipe.h"
-//#include "Tttask.h" /* Transmit */
-//#include "pmc/Modules.hpp" /* 管理子系统模块 */
-//#include "PmcTask.hpp"
-
-
-/* lci 临时 */
-//#include "lci/p_th.h"
 
 /* 中文模式 Chinese Mode */
-//#include "cn/中文化.hpp"
+#include "cn/中文化.hpp"
 
-
-static const char *PMC_VERSION = "0.6.x";  /* 版本号 */
-static const size_t MSGLEN = 2048;
-static const size_t MSGCNT = 100;
+/* 静态区 - 存放全局变量 */
+static const char *PMC_VERSION = "0.0.8";  /* 版本号 */
+static const size_t MSGLEN = 2048; /* 单条消息的长度 */
+static const size_t MSGCNT = 100;  /* 消息条数 */
 
 using namespace qing;
 namespace po = boost::program_options;
 
 
+void pmc_init(po::variables_map&);  /* 初始化pmc并行机器 */
+void pmc_serve(po::variables_map&); /* pmc的http伺服器模式 */
+void parse_self_init_list(std::string&); /* 解析自启动列表文件 */
+void parse_data_from_mq(std::string&);   /* 解析消息队列收到的消息 */
+int send_start_and_recv_pipe(const std::string& name_mq, const std::string& exec); /* 发送启动命令并且接收回复 */
+int send_list_and_recv_pipe(const std::string& name_mq); /* 发送启动命令并且接收回复 */
+int send_kill_and_recv_pipe(const std::string& name_mq, const int kill); /* 发送删除命令并且接收回复 */
+
+
+//-------------------------------------------------------------
+//-------------------------------------------------------------
 namespace qing {
+
+/* 子进程任务 */
 class ProcessTask: public ITask {
 public:
+
+    /* 输入一个字符串（要执行的命令），构造子进程任务（但是并没有执行起来） */
     ProcessTask(std::string cmd): cmd(cmd) {}
-    bool isRunning() override {
-        return p && p->running();
-    }
-    void start() override { /* 有必要抛出异常吗 */
-        if (!isRunning())
-            this->p = std::make_unique<boost::process::child>(cmd);
-    }
+
+    /* 任务是否在运行中 */
+    bool isRunning() override { return p && p->running(); }
+
+    /* 启动任务 */
+    void start() override {
+        if (!isRunning()) this->p = std::make_unique<boost::process::child>(cmd); }
+
+    /* 终止该任务（并且重置子进程指针） */
     void stop() override {
         if (isRunning()) {
             p->terminate();
         }
         p.reset();
     }
-    std::string check()  {
-        return this->cmd;
-    }
-    pid_t pid() {
-        return p->id();
-    }
+
+    /* 获取该任务（子进程）的命令 */
+    std::string check()  { return this->cmd; }
+
+    /* 获取该子进程的pid（进程编号） */
+    pid_t pid() { return p->id();  }
+
 private:
-    std::unique_ptr<boost::process::child> p;
-    std::string cmd;
+    std::unique_ptr<boost::process::child> p;  /* 子进程指针 */
+    std::string cmd;                           /* 该进程执行的命令 */
 };
+
 }
 
 
+//-------------------------------------------------------------
+//-------------------------------------------------------------
 namespace qing {
+
+
 /*
- * TRANSMIT TASK
- *
- * FIXME: 输入一个通信对象
+ * TRANSMIT TASK 通信任务
+ * （创建一个通信伺服器，它收到消息就执行回调）
  */
 class Tttask: public ITask {
 public:
-Tttask(const size_t msglen, size_t msgcnt, const sf_t callback) {
+
+/* msglen: 单条消息的长度
+ * msgcnt: 消息伺服长度
+ * callback: 回调函数 */
+Tttask(const size_t msglen, size_t msgcnt, const sf_t callback)
+: msglen(msglen), msgcnt(msgcnt) {
 	this->callback = std::make_unique<sf_t>(callback);
-	this->msglen = msglen;
-	this->msgcnt = msgcnt;
 	init_thread();
 }
+
+/* 启动该通信伺服任务 */
 void start() override {
 	if (!this->isRunning()){
 		th->Activate();
-		th->WaitStart();
+		th->WaitStart(); /* TODO: add timeout 增加超时 */
 	}
 }
-void stop() override {
-	th->WaitClose();
-}
+
+/* 终止这个通信伺服任务 */
+void stop() override { th->WaitClose(); }
+
+/* 该任务是否在运行
+ *
+ * FIXME: 对START状态的处理还应该考虑 */
 bool isRunning() override {
 	auto stat = th->check();
 	return !(stat == Fsm::Stat::STOP
 		|| stat == Fsm::Stat::SHUT);
 }
+
+
 private:
-std::unique_ptr<Thread> th;
-std::unique_ptr<sf_t> callback;
-std::unique_ptr<Mq> mq;
-size_t msglen=0, msgcnt=0;
-std::string name;
-std::string get_pid_str() {
-	return std::to_string(getpid());
-}
+std::unique_ptr<Thread> th;	/* 可控线程指针 */
+std::unique_ptr<sf_t> callback;	/* 回调行为（接收之后）指针 */
+std::unique_ptr<Mq> mq;		/* 消息队列指针 */
+size_t msglen=0, msgcnt=0;	/* 消息的缓存规格 */
+std::string name;		/* 消息队列名（进程号） */
+
+
+
+
+/* 获取当前进程编号，用于设置消息队列的名字 */
+std::string get_pid_str() { return std::to_string(getpid()); }
+
+/* 初始化通信伺服线程 */
 void init_thread() {
+
+
 	this->th = std::make_unique<Thread> (
 		
-		/* stop callback */
+		/* stop callback 静止事件 */
 		[](Thread& th) -> void {
 			th.suspend();
 		},
 
-		/*start callback */
+		/* start callback 唤醒事件 */
 		[this](Thread& th) -> void {
 			name = get_pid_str();
 			mq = std::make_unique<Mq> (name, msglen, msgcnt, Mq::CREATOR);
 			th.run();
 		},
 
-		/* loop callback */
+		/* loop callback 循环事件 */
 		[this](Thread& th) -> void {
 			
-			
-			mq->recv(*callback,
-				
-				[]() { /* FIXME: 作为参数传入延时 */
-					usleep(10000);
-			});
-
+			/* TODO: 作为参数传入延时 */
+			mq->recv(*callback, []() { usleep(10000); });
 		},
 
-		/* clean callback */
+		/* clean callback 清理事件 */
 		[this] (Thread& th) -> void {
 			mq.reset();
 		}
 
 	);
+
+
 }
+
+
+
 };
 }
 
 
 /*-------------------------------------------------------------------------*/
-Cv_wait cv =  Cv_wait();  /* 条件变量的等待机制让主程序能够等待中断信号的产生 */
+/*-------------------------------------------------------------------------*/
+Cv_wait cv =  Cv_wait();  /* 条件变量的等待机制（让主程序等待中断信号） */
 
-auto taskPool = std::vector<std::shared_ptr<ITask>>{};  /* 底层任务池 - 也就是跑控制器监听线程的任务池 */
+auto taskPool = std::vector<std::shared_ptr<ITask>>{};  /* 底层任务池 - !!! 非子进程 !!! */
 
 
 
 namespace qing {
-/*
- * process pool 进程池
- *
- * 这个池子只放子进程、目前已经集成取下标操作和删除操作
- */
+
+
+
+/* process pool 进程池 -  这个池子只放子进程 */
 class PPool {
 public:
 
+
 	/* CREATE PROCESS - 创建进程
 	 *
-	 * 需要输入启动命令 */
+	 * cmd: 启动命令 */
 	void crtp(const std::string& cmd) try {
 		auto pt = std::make_shared<ProcessTask>(cmd);
 		pt->start();
@@ -189,33 +223,33 @@ public:
 		std::cerr << "Failed to execute this command: " << cmd << std::endl;
 	}
 
-	/* CLEAR - 清理
-	 * 删除所有已经停下的进程 */
+
+	/* CLEAR 清理  -  删除所有已经停下的进程 */
 	void clr() {
 		auto it = --pool.end();
 		for (; it != pool.begin(); --it)
 			if (!(*it)-> isRunning()) {
 				auto tmp= it;
 				it++;
-				pool.erase(tmp);
+				pool.erase(tmp); /* 自动释放 */
 			}
 
-		/* 如果end() == begin()，此步将会试图删除哨兵节点 */
 		if (pool.size() > 0 && !(*it)->isRunning())
-			pool.erase(it);
+			pool.erase(it); /* 如果end() == begin()，此步将会试图删除哨兵 */
 	}
 
 
 	/* 获取进程池的大小 */
-	size_t size(){
-		return pool.size();
-	}
+	size_t size() { return pool.size(); }
 
-	/* 删除一个进程，需要输入进程的下标
-	 * FIXME: 似乎不太自然 */
+
+	/* 删除一个进程，需要输入进程的下标。  FIXME: 似乎不太自然 */
 	void kill(int idx) {
 		auto it = pool.begin();
-		for (int i=0; i < idx &&  it != pool.end(); ++i, ++it);
+		int i  = 0;
+		for (; i < idx &&  it != pool.end(); ++i, ++it);
+
+		/* 如果找到了目标（计数器没有指向尾节点） */
 		if (it != pool.end()) {
 			(*it)->stop();
 			pool.erase(it);
@@ -231,25 +265,38 @@ public:
 		return **it;
 	}
 
-	/* FIXME: begin()、end() 
+	/* TODO: begin()、end() 
 	 * ...... */
 
 private:
 
 	/* 进程任务的容器 */
 	std::list<std::shared_ptr<ProcessTask>> pool{};
+
 };
 }
 
-/* 用于存放子进程的进程池 */
-PPool ppool;
+PPool ppool;	/* 用于存放子进程的进程池 */
 
 
 /*-------------------------------------------------------------------------*/
+/*-------------------------------------------------------------------------*/
 namespace qing {
+
+
+
+/* 只用于该处的pmc子进程操作 */
 namespace pmc_mtd {
 
-auto list() -> std::string {
+/* 列举出所有子进程，包含序号、pid、执行命令。
+ *
+ * {
+ * 	"pipe": "<int>",
+ * 	"type": "list",
+ * }
+ *
+ */
+static auto list() -> std::string {
     boost::json::array processes;
     
     for (int i = 0; i < ppool.size(); ++i) {
@@ -263,7 +310,16 @@ auto list() -> std::string {
     return boost::json::serialize(processes);
 }
 
-auto kill(const int pid) -> bool {
+/* 删除一个子进程，需要提供pid
+ *
+ * {
+ *	"pipe": "<integer>",
+ *	"type": "kill",
+ *	"kill": <integer>
+ * }
+ *
+ */
+static auto kill(const int pid) -> bool {
 	for (int i=0; i<ppool.size(); ++i)
 		if ( ppool[i].pid() == pid) {
 			ppool.kill(i);
@@ -272,7 +328,16 @@ auto kill(const int pid) -> bool {
 	return false;
 }
 
-auto exec(const std::string& cmd) -> bool try {
+/* 启动一个子进程
+ *
+ * {
+ *	"pipe": "<integer>",
+ *	"type": "exec",
+ *	"exec": "<commandline>"
+ * }
+ *
+ */
+static auto exec(const std::string& cmd) -> bool try {
 	ppool.clr();
 	ppool.crtp(cmd);
 	return true;
@@ -282,12 +347,17 @@ catch(std::exception& exp) {
 	return false;
 }
 
+
 }
 }
 
 
 
+/*==============================================================*/
+/* 这些是尚未整理的工具 */
 
+/* json字符串转boost.ptree
+ * FIXME: 这个方法好像在ProcessManagerService进程托管服务中集成了*/
 boost::property_tree::ptree parseJsonToPtree(const std::string& jsonStr) {
     boost::property_tree::ptree pt;
     try {
@@ -300,6 +370,7 @@ boost::property_tree::ptree parseJsonToPtree(const std::string& jsonStr) {
     return pt;
 }
 
+/* url 解码 */
 static std::string url_decode(const std::string& str) {
     std::string result;
     std::istringstream iss(str);
@@ -319,8 +390,9 @@ static std::string url_decode(const std::string& str) {
     }
     return result;
 }
-/* ============================================================== */
 
+
+/* ============================================================== */
 namespace qing {
 /**
  * @brief 进程托管服务类
@@ -481,11 +553,8 @@ http::response<http::string_body> ProcessManagerService::handleList(
     try {
         std::string target = getTarget(params);
 
-        // TODO: 实现进程列表逻辑
         std::string result = listProcesses(target);
-
         boost::property_tree::ptree data = parseJsonToPtree(result);
-        // TODO: 将result解析为data
 
         res.result(http::status::ok);
         res.body() = buildJsonResponse(true, "Process list retrieved successfully", data);
@@ -566,7 +635,6 @@ http::response<http::string_body> ProcessManagerService::handleKill(
             return res;
         }
 
-        // TODO: 实现进程终止逻辑
         bool success = killProcess(pid, target);
 
         if (success) {
@@ -587,24 +655,34 @@ http::response<http::string_body> ProcessManagerService::handleKill(
     return res;
 }
 
-// 以下是实现占位符（留空）
-std::string ProcessManagerService::listProcesses(const std::string& target) {
-    // TODO: 实现进程列表逻辑
-
-    return pmc_mtd::list();
+// 如果target为空，在本机执行
+// 否则在目标服务器执行
+std::string ProcessManagerService::listProcesses(const std::string& target)
+{
+    if (target == "")
+        return pmc_mtd::list();
+    else {
+        auto r = send_list_and_recv_pipe(target);
+        return r ? "OK" : "ERR";
+    }
 }
 
-std::string ProcessManagerService::execCommand(const std::string& command, const std::string& target) {
-    // TODO: 实现命令执行逻辑
-    // 如果target为空，在本机执行
-    // 否则在目标服务器执行
-    return pmc_mtd::exec(command) ? "OK" :"ERR";
+std::string ProcessManagerService::execCommand(const std::string& command, const std::string& target)
+{
+    if (target == "")
+        return pmc_mtd::exec(command) ? "OK" :"ERR";
+    else {
+        auto r =send_start_and_recv_pipe(target, command); /* 发送启动命令并且接收回复 */
+        return r ? "OK" : "ERR";
+    }
 }
 
-bool ProcessManagerService::killProcess(int pid, const std::string& target) {
-    // TODO: 实现进程终止逻辑
-    
-    return pmc_mtd::kill(pid);
+bool ProcessManagerService::killProcess(int pid, const std::string& target)
+{
+    if (target == "")
+        return pmc_mtd::kill(pid);
+    else
+        return send_kill_and_recv_pipe(target, pid);
 }
 }
 
@@ -618,13 +696,13 @@ void signalHandler(int signum)
 {
     LOG_INFO("收到终止信号，准备停止服务器...");
     cv.WakeCv();    /* 唤醒条件信号即关闭程序 */
-    if (server) server->stop();
+    if (server)
+	    server->stop(); /* TODO: 封装成ITask */
 }
 
-/*----SIGNAL ACTION----*/
+/*---------------- SIGNAL ACTION ----------------*/
 //
-/* 对信号的响应行为
- * NOTE: 我应该系统地学习一下这个库 */
+/* 对信号的响应行为  TODO: 我应该系统地学习一下这个库 */
 void set_signal_action() {
 
     /* 该结构体用于描述信号的处理方式 */
@@ -662,14 +740,6 @@ void set_signal_action() {
 
 /*-------------------------------------------------------------------------*/
 /*-------------------------------------------------------------------------*/
-int pmc_init(po::variables_map&);  /* 初始化pmc并行机器 */
-void parse_self_init_list(std::string&); /* 解析自启动列表文件 */
-void parse_data_from_mq(std::string&); /*  */
-int send_start_and_recv_pipe(po::variables_map&); /* 发送启动命令并且接收回复 */
-int send_list_and_recv_pipe(po::variables_map&); /* 发送启动命令并且接收回复 */
-int send_kill_and_recv_pipe(po::variables_map&); /* 发送删除命令并且接收回复 */
-
-
 /* 入口函数 */
 int main(int argc, char** argv) {
 
@@ -681,16 +751,16 @@ int main(int argc, char** argv) {
     /* 解析命令行参数 */
     po::options_description desc("pmc subsystem start options");
     desc.add_options()  /* 定义选项 */
-	("help,h",    "display help message")
-	("version,v", "display version message")
-	/******** 子系统调用 *********/
-	("send,s", po::value<std::string>(), "send a message to pmc sys")
-	("exec",   po::value<std::string>(), "message body")
-	("list", "list process all run")
-	("kill",   po::value<int>(),         "kill a process")
-	/********* 子系统启动 ********/
-	("init,i", po::value<std::string>(), "self-init list")
-	("serve",  po::value<int>(),         "Run as http server");
+	("help,h",    "display help message")		/* 帮助菜单 */
+	("version,v", "display version message")	/* 显示版本 */
+	/******** 子系统调用模式 *********/
+	("send,s", po::value<std::string>(), "send a message to pmc sys")	/* 输入目标pid */
+	("exec",   po::value<std::string>(), "message body")			/* 启动一个进程 */
+	("list", "list process all run")					/* 列出运行中的进程 */
+	("kill",   po::value<int>(),         "kill a process")			/* 杀死一个进程 */
+	/********* 子系统服务模式 ********/
+	("init,i", po::value<std::string>(), "self-init list")			/* 输入自启动列表 */
+	("serve",  po::value<int>(),         "Run as http server");		/* 启用http伺服器 */
 
     /* 参数变量映射关系 */
     po::variables_map vm;
@@ -714,76 +784,192 @@ int main(int argc, char** argv) {
 	throw e;
     }
 
-    /*----------------------------------------*/
-    /* 初始化OpenSSL */
+	/*----------------------------------------*/
+	/* 初始化OpenSSL */
 	//OpenSSL_add_all_algorithms();
 	//ERR_load_crypto_strings();
-	
 
 	if ( vm.count("send") && vm.count("exec")) {
-		return send_start_and_recv_pipe(vm);
+		auto send = vm["send"].as<std::string>();
+		auto exec = vm["exec"].as<std::string> ();
+		return send_start_and_recv_pipe(send, exec);
 	}
 
 	else if ( vm.count("send") && vm.count("list")){
-		return send_list_and_recv_pipe(vm);
+		auto send = vm["send"].as<std::string> ();
+		return send_list_and_recv_pipe(send);
 	}
 
 	else if (vm.count("send") && vm.count("kill")) {
-		return send_kill_and_recv_pipe(vm);
+		auto send = vm["send"].as<std::string> ();
+		auto kill = vm["kill"].as<int>();
+		return send_kill_and_recv_pipe(send, kill);
 	}
 
 	/* 初始化日志模块 */
 	Logger::getInstance().init(LogLevel::DEBUG, true);
 
+
+	/* 列表自启动 */
+	if (vm.count("init")){
+		std::string path = vm["init"].as<std::string>();
+		parse_self_init_list(path);
+	}
+
 	
-	if (!vm.count("serve"))
+	/**********************************************/
+
+	/* TODO: 抽象出来 */
+	if (vm.count("serve"))
+		pmc_serve(vm);
+	
+	else if (!vm.count("serve")) {
 	/* pmc初始化函数 */
 		pmc_init(vm);
 
-    /* 清理 OpenSSL 资源 */
+	/* 清理 OpenSSL 资源 */
 	//EVP_cleanup();
 	//ERR_free_strings();
 
-    /**********************************************/
-
-	else if (vm.count("serve")) {
-		int port = vm["serve"].as<int>();
-		server = std::make_unique<pmc::net::HttpServer>("127.0.0.1", port, 4);
-		ProcessManagerService pmService(*server);
-		pmService.registerRoutes();
-		server->start();
-
-		std::cout << "Process Manager Service running on port " << port << std::endl;
-		std::cout << "Available endpoints:" << std::endl;
-		std::cout << "  POST /list?target=optional" << std::endl;
-		std::cout << "  POST /exec?command=ls&target=optional" << std::endl;
-		std::cout << "  POST /kill?pid=1234&target=optional" << std::endl;
-
-		server->run();
-	}
-	
 	
 	/*
 	 * 等待
 	 *
 	 * 触发器在信号处理那里
 	 */
-	else cv.Wait();
+		cv.Wait();
 
-	/* 主线程被唤醒 */
-	for (auto& task: taskPool) {
-		task->stop();
+		/* 主线程被唤醒 */
+		for (auto& task: taskPool) {
+			task->stop();
+		}
 	}
 }
 
+
+
+
 /*-----------------------------------------------------------------------------*/
-/* 向pmc的消息队列发送启动命令并且从管道接收回复 */
-int send_start_and_recv_pipe(po::variables_map& vm)
+/* 初始化子系统 */
+void pmc_init(po::variables_map& vm) {
+
+	/*-------------------*/
+	auto ttt = std::make_shared<Tttask> (MSGLEN, MSGCNT,
+		[](const char *data) { /* 处理收到的数据 */
+			auto json_str = std::string(data);
+			parse_data_from_mq(json_str);
+		});
+	ttt->start();
+	taskPool.push_back(ttt);
+}
+
+/* http伺服器模式（只监听本地）TODO: 集成为ITask */
+void pmc_serve(po::variables_map& vm)
+{
+	int port = vm["serve"].as<int>();
+	server = std::make_unique<pmc::net::HttpServer>("127.0.0.1", port, 4);
+	ProcessManagerService pmService(*server);
+	pmService.registerRoutes();
+	server->start();
+
+	std::cout << "Process Manager Service running on port " << port << std::endl;
+	std::cout << "Available endpoints:" << std::endl;
+	std::cout << "  POST /list?target=optional" << std::endl;
+	std::cout << "  POST /exec?command=ls&target=optional" << std::endl;
+	std::cout << "  POST /kill?pid=1234&target=optional" << std::endl;
+
+	server->run();
+}
+
+/* 解析自启动列表、添加自启动项 */
+void parse_self_init_list(std::string &path) 
 try {
+
+	std::ifstream file(path);
+	if (!file.is_open()) {
+		std::cerr << "Failed to open self-init list" << std::endl;
+		return;
+	}
+
+	std::string row = "";
+	char ch;
+	while (file.get(ch))
+
+		if (ch == '\n') { 
+	
+			auto pos = row.find("#");
+			if (pos != -1)
+				row = row.substr(0, pos);
+			if (row != "") {
+				ppool.clr();
+				ppool.crtp(row);
+				row = "";
+			}
+		}
+
+		else row += ch;
+
+}
+
+catch (std::exception &exp) {
+    std::cerr << "Exception at: parse_self_init_list()" << std::endl;
+    std::cerr << "Exception type: " << typeid(exp).name() << std::endl;
+    std::cerr << "Exception info: " << exp.what() << std::endl;
+}
+
+
+/* 解析从消息队列中接收到的数据，运行在服务端 */
+void parse_data_from_mq(std::string& json_str)
+try {
+	boost::json::value jv = boost::json::parse(json_str);
+	std::string namepipe = jv.at("pipe").as_string().c_str(); 
+	std::string typ = jv.at("type").as_string().c_str();
+	auto pipe = Pipe(namepipe, Pipe::USER);
+	pipe.openForWrite();
+
+
+	if (typ == "list") {
+		auto msg = pmc_mtd::list();
+		pipe.writePipe(msg);
+		return;
+	}
+
+	else if (typ == "kill") {
+		int trg = jv.at("kill").as_int64();
+		auto flag = pmc_mtd::kill(trg);
+		std::string msg = flag ? "OK" : "Nope";
+		pipe.writePipe(msg);
+		return;
+	}
+
+	else if (typ == "exec"){
+		std::string cmd = jv.at("exec").as_string().c_str();
+		std::string msg = (pmc_mtd::exec(cmd)) ? "OK" : "ERR";
+		pipe.writePipe(msg);
+		return;
+	}
+}
+
+catch (std::exception &exp) {
+    std::cerr << "Exception at:   parse_data_from_mq()" << std::endl;
+    std::cerr << "Exception type: " << typeid(exp).name() << std::endl;
+    std::cerr << "Exception info: " << exp.what() << std::endl;
+}
+
+
+
+
+/*-----------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------*/
+/* 子系统调用 TODO: 使用非boost.variables_map参数 */
+
+
+/* 向pmc的消息队列发送启动命令并且从管道接收回复 */
+int send_start_and_recv_pipe(const std::string& name_mq, const std::string& exec)
+try {
+
 	auto name_pipe = std::to_string(getpid());
-	auto name_mq = vm["send"].as<std::string>();
 	auto mq = Mq(name_mq, 2048, 100, Mq::USER); /* 放在这里避免管道文件的残留 */
-	auto exec = vm["exec"].as<std::string> ();
 
 	boost::json::object obj;
 	obj["pipe"] = name_pipe;
@@ -826,12 +1012,13 @@ catch (std::exception &exp) {
 }
 
 
+
+
 /* 向目标子系统发送列举命令并收集结果 */
-int send_list_and_recv_pipe(po::variables_map& vm)
+int send_list_and_recv_pipe(const std::string& name_mq)
 try {
 
 	auto name_pipe = std::to_string(getpid());
-	auto name_mq = vm["send"].as<std::string> ();
 	auto mq = Mq(name_mq, 2048, 100, Mq::USER);
 
 	boost::json::object obj;
@@ -862,10 +1049,10 @@ try {
 
 }
 
-catch (boost::interprocess::interprocess_exception &exp)  {
-	std::cerr << "Target Pmc Is Not Found" << std::endl;
-	return 1;
-}
+//catch (boost::interprocess::interprocess_exception &exp)  {
+//	std::cerr << "Target Pmc Is Not Found" << std::endl;
+//	return 1;
+//}
 
 catch (std::exception &exp) {
     std::cerr << "异常类型: " << typeid(exp).name() << std::endl;
@@ -873,14 +1060,14 @@ catch (std::exception &exp) {
     return 1;
 }
 
+
+
 /* 删除操作调用 */
-int send_kill_and_recv_pipe(po::variables_map &vm)
+int send_kill_and_recv_pipe(const std::string& name_mq, const int kill)
 try{
 
 	auto name_pipe = std::to_string(getpid());
-	auto name_mq = vm["send"].as<std::string> ();
 	auto mq = Mq(name_mq, 2048, 100, Mq::USER);
-	auto kill = vm["kill"].as<int>();
 
 	boost::json::object obj;
 	obj["pipe"] = name_pipe;
@@ -914,139 +1101,14 @@ try{
 
 /* 没有打开目标子系统的消息队列时，会触发这个异常
  * 但是实际上这里捕获的是进程间通信通用异常 */
-catch (boost::interprocess::interprocess_exception &exp)  {
-	std::cerr << "Target Pmc Is Not Found" << std::endl;
-	return 1;
-}
+//catch (boost::interprocess::interprocess_exception &exp)  {
+//	std::cerr << "Target Pmc Is Not Found" << std::endl;
+//	return 1;
+//}
 
 /* 这些函数抛出异常后可能导致管道文件残留 */
 catch (std::exception &exp) {
     std::cerr << "异常类型: " << typeid(exp).name() << std::endl;
     std::cerr << "异常信息: " << exp.what() << std::endl;
     return 1;
-}
-
-
-/*-----------------------------------------------------------------------------*/
-/* 初始化子系统 */
-int pmc_init(po::variables_map& vm) {
-	if (vm.count("init")){
-		std::string path = vm["init"].as<std::string>();
-		parse_self_init_list(path);
-	}
-
-
-
-	/*-------------------*/
-	auto ttt = std::make_shared<Tttask> (MSGLEN, MSGCNT,
-		[](const char *data) { /* 处理收到的数据 */
-			auto json_str = std::string(data);
-			parse_data_from_mq(json_str);
-		});
-	ttt->start();
-	taskPool.push_back(ttt);
-	return 0;
-}
-
-/* 解析自启动列表、添加自启动项 */
-void parse_self_init_list(std::string &path) 
-try {
-
-	std::ifstream file(path);
-	if (!file.is_open()) {
-		std::cerr << "Failed to open self-init list" << std::endl;
-		return;
-	}
-
-	std::string row = "";
-	char ch;
-	while (file.get(ch)) {
-
-		if (ch == '\n') { 
-	
-			auto pos = row.find("#");
-			if (pos != -1)
-				row = row.substr(0, pos);
-			if (row != "") {
-				ppool.clr();
-				ppool.crtp(row);
-				row = "";
-			}
-		}
-
-		else {
-			row += ch;
-		}
-	
-	}
-
-}
-
-catch (std::exception &exp) {
-    std::cerr << "异常类型: " << typeid(exp).name() << std::endl;
-    std::cerr << "异常信息: " << exp.what() << std::endl;
-}
-
-
-/* 解析从消息队列中接收到的数据 */
-void parse_data_from_mq(std::string& json_str)
-try {
-	boost::json::value jv = boost::json::parse(json_str);
-	std::string namepipe = jv.at("pipe").as_string().c_str(); 
-	std::string typ = jv.at("type").as_string().c_str();
-	auto pipe = Pipe(namepipe, Pipe::USER);
-	pipe.openForWrite();
-
-
-	/* 列举出所有子进程，包含序号、pid、执行命令。
-	 *
-	 * {
-	 * 	"pipe": "<int>",
-	 * 	"type": "list",
-	 * }
-	 *
-	 */
-	if (typ == "list") {
-		auto msg = pmc_mtd::list();
-		pipe.writePipe(msg);
-		return;
-	}
-
-	/* 删除一个子进程，需要提供pid
-	 *
-	 * {
-	 *	"pipe": "<integer>",
-	 *	"type": "kill",
-	 *	"kill": <integer>
-	 * }
-	 *
-	 */
-	else if (typ == "kill") {
-		int trg = jv.at("kill").as_int64();
-		auto flag = pmc_mtd::kill(trg);
-		std::string msg = flag ? "OK" : "Nope";
-		pipe.writePipe(msg);
-		return;
-	}
-
-	/* 启动一个子进程
-	 *
-	 * {
-	 *	"pipe": "<integer>",
-	 *	"type": "exec",
-	 *	"exec": "<commandline>"
-	 * }
-	 *
-	 */
-	else if (typ == "exec"){
-		std::string cmd = jv.at("exec").as_string().c_str();
-		std::string msg = (pmc_mtd::exec(cmd)) ? "OK" : "ERR";
-		pipe.writePipe(msg);
-		return;
-	}
-}
-
-catch (std::exception &exp) {
-    std::cerr << "异常类型: " << typeid(exp).name() << std::endl;
-    std::cerr << "异常信息: " << exp.what() << std::endl;
 }
