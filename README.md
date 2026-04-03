@@ -3,9 +3,7 @@
 
 ## pmc是一个什么项目？
 
-这是一个可扩展的模块，可以在文件夹下建立单独的模块。每个模块需要一个_run.sh名字的启动脚本。
-
-pmc核心模块可以托管运行这些模块。
+这是一个可扩展的模块，可以在文件夹下建立单独的模块，pmc核心模块可以托管运行这些模块。
 
 
 ## 为什么要做一个这样的项目?
@@ -15,18 +13,14 @@ pmc核心模块可以托管运行这些模块。
 
 ## 项目的文件结构是怎样的？
 
-pmc根目录下首先有一些相关模块，比如pmc、_init这些是核心模块。
-
-extra下面还有一些额外的模块。
-
+users用户可以在目录下创建子模块，extra下面还有一些额外的模块。
 
 请留意模块的README文件
 
 
 ## 如何托管外部模块
 
-将模块放置在users文件夹下面，然后修改启动列表，即_init/init.txt。
-
+编辑启动列表程序，常为init.txt
 
 
 ## PMC的安装方式
@@ -37,8 +31,8 @@ sudo apt install git g++ make
 #sudo apt install python3 python3-pip python3-venv
 #sudo dnf install python3-virtualenv
 sudo apt install libboost-all-dev
-sudo apt install libssl-dev
-sudo apt install cimg-dev
+#sudo apt install libssl-dev
+#sudo apt install cimg-dev
 #sudo apt install libcurl4-openssl-dev
 #sudo apt install libcurl4-gnutls-dev
 #sudo apt install libargs-dev
@@ -46,14 +40,12 @@ sudo apt install cimg-dev
 
 2. 创建项目
 git clone https://github.com/gopsc/pmc
-mv pmc /opt
-cd /opt/pmc
 cd pmc  # 这是pmc模块
 make pmc
 #sudo make install
 ```
 
-## 加密通信机制
+## 加密通信机制（废弃）
 PMC在启动时生成一个AES密钥，然后用一个RSA公钥将其加密发送给访问者。
 
 然后访问者与客户端之间的交流全部用此AES密钥加密
@@ -62,7 +54,7 @@ PMC在启动时生成一个AES密钥，然后用一个RSA公钥将其加密发�
 ## 如何使用并发机器运行程序
 首先应该在模块中创建一个启动脚本，脚本中应该完成工作目录的切换、虚拟环境的激活，以及程序的启动。
 
-## 需要创建启动脚本
+## 需要创建启动脚本（废弃）
 ```bash
 # _run.sh
 # 启动脚本 - 示例
