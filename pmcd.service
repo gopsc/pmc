@@ -5,6 +5,6 @@ After=network.target
 [Service]
 User=qing
 Group=qing
-ExecStart=pmc -i /etc/pmc/init.txt
+ExecStart=pmc -i /etc/pmc/init.txt --serve 5200
 [Install]
 WantedBy=multi-user.target
