@@ -4,7 +4,7 @@
  *
  *  【主函数文件】
  *
- *  直接子系统调用，或者启动一个pmc子系统。
+ *  直接子系统调用，或者启动一个pmc子系统（可以打开http）。
  * ===============================================
  */
 #include <functional>
@@ -40,21 +40,22 @@
 #include "cn/中文化.hpp"
 
 /* 静态区 - 存放全局变量 */
-static const char *PMC_VERSION = "0.0.8";  /* 版本号 */
-static const size_t MSGLEN = 2048; /* 单条消息的长度 */
-static const size_t MSGCNT = 100;  /* 消息条数 */
+static const char *PMC_VERSION = "0.0.8"; 	/* 版本号 */
+static const size_t MSGLEN = 2048;		/* 单条消息的长度 */
+static const size_t MSGCNT = 100;		/* 消息条数 */
 
+/* 命名空间 */
 using namespace qing;
 namespace po = boost::program_options;
 
 
-void pmc_init(po::variables_map&);  /* 初始化pmc并行机器 */
-void pmc_serve(po::variables_map&); /* pmc的http伺服器模式 */
-void parse_self_init_list(std::string&); /* 解析自启动列表文件 */
-void parse_data_from_mq(std::string&);   /* 解析消息队列收到的消息 */
-std::string send_start_and_recv_pipe(const std::string& name_mq, const std::string& exec); /* 发送启动命令并且接收回复 */
-std::string send_list_and_recv_pipe(const std::string& name_mq); /* 发送启动命令并且接收回复 */
-std::string send_kill_and_recv_pipe(const std::string& name_mq, const int kill); /* 发送删除命令并且接收回复 */
+void pmc_init(po::variables_map&);		/* 初始化pmc并行机器 */
+void pmc_serve(po::variables_map&);		/* pmc的http伺服器模式 */
+void parse_self_init_list(std::string&);	/* 解析自启动列表文件 */
+void parse_data_from_mq(std::string&);		/* 解析消息队列收到的消息 */
+std::string send_list_and_recv_pipe(const std::string& name_mq);				/* 发送启动命令并且接收回复 */
+std::string send_start_and_recv_pipe(const std::string& name_mq, const std::string& exec);	/* 发送启动命令并且接收回复 */
+std::string send_kill_and_recv_pipe(const std::string& name_mq, const int kill);		/* 发送删除命令并且接收回复 */
 
 
 //-------------------------------------------------------------
@@ -109,7 +110,8 @@ namespace qing {
 class Tttask: public ITask {
 public:
 
-/* msglen: 单条消息的长度
+/* 【通信任务】
+ * msglen: 单条消息的长度
  * msgcnt: 消息伺服长度
  * callback: 回调函数 */
 Tttask(const size_t msglen, size_t msgcnt, const sf_t callback)
@@ -120,14 +122,18 @@ Tttask(const size_t msglen, size_t msgcnt, const sf_t callback)
 
 /* 启动该通信伺服任务 */
 void start() override {
-	if (!this->isRunning()){
-		th->Activate();
+	if (!this->isRunning())
+	{
+		th->Activate();  /* FIXME: 这里获取了资源，不知道会不会造成内存泄漏 */
 		th->WaitStart(); /* TODO: add timeout 增加超时 */
 	}
 }
 
-/* 终止这个通信伺服任务 */
+/* 终止这个通信伺服任务 
+ *
+ * TODO: 研究一下要不要释放一些资源 */
 void stop() override { th->WaitClose(); }
+
 
 /* 该任务是否在运行
  *
@@ -140,19 +146,22 @@ bool isRunning() override {
 
 
 private:
-std::unique_ptr<Thread> th;	/* 可控线程指针 */
-std::unique_ptr<sf_t> callback;	/* 回调行为（接收之后）指针 */
-std::unique_ptr<Mq> mq;		/* 消息队列指针 */
-size_t msglen=0, msgcnt=0;	/* 消息的缓存规格 */
-std::string name;		/* 消息队列名（进程号） */
+std::unique_ptr<Thread> th;	/* 可控线程指针			*/
+std::unique_ptr<sf_t> callback;	/* 回调行为（接收之后）指针	*/
+std::unique_ptr<Mq> mq;		/* 消息队列指针			*/
+size_t msglen=0, msgcnt=0;	/* 消息的缓存规格		*/
+std::string name;		/* 消息队列名（进程号） 	*/
 
 
 
 
-/* 获取当前进程编号，用于设置消息队列的名字 */
-std::string get_pid_str() { return std::to_string(getpid()); }
+/* 获取当前进程编号，用于设置消息队列的名字 
+ * TODO: 统一放到一个工具类中 */
+static std::string get_pid_str() { return std::to_string(getpid()); }
 
-/* 初始化通信伺服线程 */
+/* 初始化通信伺服线程，
+ * 初始化方法就是通过传入一些函数，
+ * 构建线程 */
 void init_thread() {
 
 
@@ -160,12 +169,14 @@ void init_thread() {
 		
 		/* stop callback 静止事件 */
 		[](Thread& th) -> void {
+
+			/* 由线程提供的等待状态机发生改变信号的方法 */
 			th.suspend();
 		},
 
 		/* start callback 唤醒事件 */
 		[this](Thread& th) -> void {
-			name = get_pid_str();
+			name = get_pid_str(); /* 以进程名构建消息队列 */
 			mq = std::make_unique<Mq> (name, msglen, msgcnt, Mq::CREATOR);
 			th.run();
 		},
@@ -173,12 +184,15 @@ void init_thread() {
 		/* loop callback 循环事件 */
 		[this](Thread& th) -> void {
 			
-			/* TODO: 作为参数传入延时 */
+			/* TODO: 作为参数传入延时 
+			 * TODO: 使用标准库线程延时*/
 			mq->recv(*callback, []() { usleep(10000); });
 		},
 
 		/* clean callback 清理事件 */
 		[this] (Thread& th) -> void {
+
+			/* 直接重置指针 */
 			mq.reset();
 		}
 
@@ -197,7 +211,7 @@ void init_thread() {
 /*-------------------------------------------------------------------------*/
 Cv_wait cv =  Cv_wait();  /* 条件变量的等待机制（让主程序等待中断信号） */
 
-auto taskPool = std::vector<std::shared_ptr<ITask>>{};  /* 底层任务池 - !!! 非子进程 !!! */
+auto taskPool = std::vector<std::shared_ptr<ITask>>{};  /* 基层任务池 - !!! 非子进程 !!! */
 
 
 
@@ -215,10 +229,11 @@ public:
 	 * cmd: 启动命令 */
 	void crtp(const std::string& cmd) try {
 		auto pt = std::make_shared<ProcessTask>(cmd);
-		pt->start();
+		pt->start(); /* 直接创建了进程丢进容器 */
 		pool.push_back(pt);
 	}
 
+	/* 如果boost的子进程模块报错，表示子进程创建失败？ */
 	catch (boost::process::process_error &exp) {
 		std::cerr << "Failed to execute this command: " << cmd << std::endl;
 	}
@@ -230,10 +245,11 @@ public:
 		for (; it != pool.begin(); --it)
 			if (!(*it)-> isRunning()) {
 				auto tmp= it;
-				it++;
-				pool.erase(tmp); /* 自动释放 */
+				it++;		 /* 返回上一个结点 */
+				pool.erase(tmp); /* 自动释放	   */
 			}
 
+		/* 循环结束时it == begin()，如果容器为空则end() == begin() */
 		if (pool.size() > 0 && !(*it)->isRunning())
 			pool.erase(it); /* 如果end() == begin()，此步将会试图删除哨兵 */
 	}
@@ -243,8 +259,13 @@ public:
 	size_t size() { return pool.size(); }
 
 
-	/* 删除一个进程，需要输入进程的下标。  FIXME: 似乎不太自然 */
+	/* 删除一个进程，需要输入进程的下标。 
+	 *
+	 * FIXME: 输入进程下标似乎不太自然 */
 	void kill(int idx) {
+
+
+		/* 从头部向后计数idx */
 		auto it = pool.begin();
 		int i  = 0;
 		for (; i < idx &&  it != pool.end(); ++i, ++it);
@@ -254,6 +275,12 @@ public:
 			(*it)->stop();
 			pool.erase(it);
 		}
+
+		/* 因抵达终点而停下（下标越界） */
+		else {
+			throw std::out_of_range("PPool::kill()");
+		}
+
 	}
 
 	/* 取下标运算符重载 - 取元素对象 */
@@ -261,16 +288,16 @@ public:
 		auto it = pool.begin();
 		for (int i = 0; i < idx; ++it, ++i)
 			if (it == pool.end())
-				throw std::out_of_range("PPool::operator[]");
+				throw std::out_of_range("PPool::operator[]()");
 		return **it;
 	}
 
-	/* TODO: begin()、end() 
+	/* TODO: 实现迭代器和begin()、end() 
 	 * ...... */
 
 private:
 
-	/* 进程任务的容器 */
+	/* 进程任务的shared指针的容器 */
 	std::list<std::shared_ptr<ProcessTask>> pool{};
 
 };
@@ -285,7 +312,7 @@ namespace qing {
 
 
 
-/* 只用于该处的pmc子进程操作 */
+/* pmc子进程操作 */
 namespace pmc_mtd {
 
 /* 列举出所有子进程，包含序号、pid、执行命令。
@@ -299,8 +326,10 @@ namespace pmc_mtd {
 static auto list() -> std::string {
     boost::json::array processes;
     
+    /* 遍历子进程池
+     * FIXME: 子进程池的迭代器完成后，改为使用for-in迭代 */
     for (int i = 0; i < ppool.size(); ++i) {
-        processes.push_back({
+        processes.push_back({ /* 向json中推入对象 */
             {"index", i},
             {"pid", ppool[i].pid()},
             {"status", ppool[i].check()}
@@ -320,11 +349,15 @@ static auto list() -> std::string {
  *
  */
 static auto kill(const int pid) -> bool {
+
+	/* 遍历子进程池对比pid */
 	for (int i=0; i<ppool.size(); ++i)
 		if ( ppool[i].pid() == pid) {
 			ppool.kill(i);
 			return true;
 		}
+
+	/* 失败返回逻辑假 */
 	return false;
 }
 
@@ -343,6 +376,7 @@ static auto exec(const std::string& cmd) -> bool try {
 	return true;
 }
 
+/* 如果出现任何异常，返回假 */
 catch(std::exception& exp) {
 	return false;
 }
