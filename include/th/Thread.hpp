@@ -25,7 +25,9 @@ using f_t = std::function<void(Thread&)>;
 class Thread {
 public:
 
-    /* 作为可变的函数，持有回调可能比继承更好 */
+    /* 作为可变的函数，持有回调可能比继承更好
+     *
+     * FIXME: 可以改为链式传递参数 */
     Thread(f_t stop_callback, f_t wake_callback, f_t loop_callback, f_t clear_callback);
 
     /*

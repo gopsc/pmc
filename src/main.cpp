@@ -17,14 +17,14 @@
 #include <memory>
 #include <vector>
 #include <cstddef>
-#include <csignal> /* 注册信号以优雅退出 */
+#include <csignal>
 #include <cctype>
 #include <iomanip>
 #include <unistd.h>
 #include <sys/types.h>
 #include <boost/json.hpp>
 #include <boost/process.hpp>
-#include <boost/program_options.hpp> /* 解析命令行参数 */
+#include <boost/program_options.hpp> 
 #include <boost/interprocess/ipc/message_queue.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include "boost/property_tree/json_parser.hpp"
@@ -62,11 +62,12 @@ std::string send_kill_and_recv_pipe(const std::string& name_mq, const int kill);
 //-------------------------------------------------------------
 namespace qing {
 
-/* 子进程任务 */
+/* 【子进程任务】 
+ * 输入要执行的命令，构造子进程任务*/
 class ProcessTask: public ITask {
 public:
 
-    /* 输入一个字符串（要执行的命令），构造子进程任务（但是并没有执行起来） */
+    /* 输入一个字符串（要执行的命令）（但是并没有执行起来） */
     ProcessTask(std::string cmd): cmd(cmd) {}
 
     /* 任务是否在运行中 */
@@ -110,13 +111,13 @@ namespace qing {
 class Tttask: public ITask {
 public:
 
-/* 【通信任务】
+/* 构造【通信任务】
  * msglen: 单条消息的长度
  * msgcnt: 消息伺服长度
  * callback: 回调函数 */
 Tttask(const size_t msglen, size_t msgcnt, const sf_t callback)
 : msglen(msglen), msgcnt(msgcnt) {
-	this->callback = std::make_unique<sf_t>(callback);
+	this->callback = std::make_unique<sf_t>(callback); /* FIXME: 使用指针似乎有所不妥 */
 	init_thread();
 }
 
@@ -155,18 +156,15 @@ std::string name;		/* 消息队列名（进程号） 	*/
 
 
 
-/* 获取当前进程编号，用于设置消息队列的名字 
- * TODO: 统一放到一个工具类中 */
-static std::string get_pid_str() { return std::to_string(getpid()); }
-
 /* 初始化通信伺服线程，
  * 初始化方法就是通过传入一些函数，
  * 构建线程 */
 void init_thread() {
 
-
+	/* 构造通信线程 */
 	this->th = std::make_unique<Thread> (
 		
+
 		/* stop callback 静止事件 */
 		[](Thread& th) -> void {
 
@@ -176,7 +174,7 @@ void init_thread() {
 
 		/* start callback 唤醒事件 */
 		[this](Thread& th) -> void {
-			name = get_pid_str(); /* 以进程名构建消息队列 */
+			name = std::to_string(getpid()); /* 以进程名构建消息队列 */
 			mq = std::make_unique<Mq> (name, msglen, msgcnt, Mq::CREATOR);
 			th.run();
 		},
@@ -184,8 +182,11 @@ void init_thread() {
 		/* loop callback 循环事件 */
 		[this](Thread& th) -> void {
 			
-			/* TODO: 作为参数传入延时 
-			 * TODO: 使用标准库线程延时*/
+	
+			/* 第一个是接收成功的处理事件，第二个是接收失败的处理事件
+			 *
+			 * TODO: 作为参数传入延时 
+			 * TODO: 使用标准库的线程延时*/
 			mq->recv(*callback, []() { usleep(10000); });
 		},
 
@@ -211,7 +212,7 @@ void init_thread() {
 /*-------------------------------------------------------------------------*/
 Cv_wait cv =  Cv_wait();  /* 条件变量的等待机制（让主程序等待中断信号） */
 
-auto taskPool = std::vector<std::shared_ptr<ITask>>{};  /* 基层任务池 - !!! 非子进程 !!! */
+auto taskPool = std::vector<std::shared_ptr<ITask>>{};  /* 基层任务池  -  !!! 非子进程 !!! */
 
 
 
@@ -219,7 +220,7 @@ namespace qing {
 
 
 
-/* process pool 进程池 -  这个池子只放子进程 */
+/* process pool 进程池 */
 class PPool {
 public:
 
@@ -227,7 +228,8 @@ public:
 	/* CREATE PROCESS - 创建进程
 	 *
 	 * cmd: 启动命令 */
-	void crtp(const std::string& cmd) try {
+	void crtp(const std::string& cmd) try
+	{
 		auto pt = std::make_shared<ProcessTask>(cmd);
 		pt->start(); /* 直接创建了进程丢进容器 */
 		pool.push_back(pt);
@@ -241,16 +243,16 @@ public:
 
 	/* CLEAR 清理  -  删除所有已经停下的进程 */
 	void clr() {
-		auto it = --pool.end();
-		for (; it != pool.begin(); --it)
-			if (!(*it)-> isRunning()) {
-				auto tmp= it;
+		auto it = --pool.end();         /* 由最后一个元素开始 */
+		for (; it != pool.begin(); --it) /* 回溯遍历 */
+			if (!(*it)-> isRunning()) { /* 如果任务已经终止 */
+				auto tmp= it;	 /* 储存当前位置 */
 				it++;		 /* 返回上一个结点 */
-				pool.erase(tmp); /* 自动释放	   */
+				pool.erase(tmp); /* 自动释放终止的节点   */
 			}
 
 		/* 循环结束时it == begin()，如果容器为空则end() == begin() */
-		if (pool.size() > 0 && !(*it)->isRunning())
+		if (pool.size() > 0 && !(*it)->isRunning()) /* */
 			pool.erase(it); /* 如果end() == begin()，此步将会试图删除哨兵 */
 	}
 
@@ -270,10 +272,9 @@ public:
 		int i  = 0;
 		for (; i < idx &&  it != pool.end(); ++i, ++it);
 
-		/* 如果找到了目标（计数器没有指向尾节点） */
-		if (it != pool.end()) {
-			(*it)->stop();
-			pool.erase(it);
+		if (it != pool.end()) {	/* 如果找到了目标（因到达idx而停止）（计数器没有指向尾节点） */
+			(*it)->stop();  /* 关闭当前任务 */
+			pool.erase(it); /* 从容器中移除当前任务 */
 		}
 
 		/* 因抵达终点而停下（下标越界） */
@@ -286,11 +287,12 @@ public:
 	/* 取下标运算符重载 - 取元素对象 */
 	ProcessTask& operator[](const size_t idx) {
 		auto it = pool.begin();
-		for (int i = 0; i < idx; ++it, ++i)
-			if (it == pool.end())
+		for (int i = 0; i < idx; ++it, ++i) /* 遍历idx次 */
+			if (it == pool.end())	/* 如果该节点是尾部哨兵（下标越界） */
 				throw std::out_of_range("PPool::operator[]()");
-		return **it;
+		return **it; /* 返回当前节点 */
 	}
+
 
 	/* TODO: 实现迭代器和begin()、end() 
 	 * ...... */
@@ -303,7 +305,8 @@ private:
 };
 }
 
-PPool ppool;	/* 用于存放子进程的进程池 */
+/* ---- 用于存放子进程的进程池 ---- */
+PPool ppool;
 
 
 /*-------------------------------------------------------------------------*/
@@ -312,21 +315,21 @@ namespace qing {
 
 
 
-/* pmc子进程操作 */
+/* 【pmc子进程操作】集合 */
 namespace pmc_mtd {
 
-/* 列举出所有子进程，包含序号、pid、执行命令。
+/* 
+ * 列举出所有子进程。
  *
  * {
  * 	"pipe": "<int>",
  * 	"type": "list",
- * }
- *
- */
+ * } */
 static auto list() -> std::string {
     boost::json::array processes;
     
     /* 遍历子进程池
+     *
      * FIXME: 子进程池的迭代器完成后，改为使用for-in迭代 */
     for (int i = 0; i < ppool.size(); ++i) {
         processes.push_back({ /* 向json中推入对象 */
@@ -336,44 +339,44 @@ static auto list() -> std::string {
         });
     }
     
+    /* 返回序列化的json对象 */
     return boost::json::serialize(processes);
 }
 
-/* 删除一个子进程，需要提供pid
+/* 
+ * 删除一个子进程，需要提供pid
  *
  * {
  *	"pipe": "<integer>",
  *	"type": "kill",
  *	"kill": <integer>
- * }
- *
- */
+ * } */
 static auto kill(const int pid) -> bool {
 
 	/* 遍历子进程池对比pid */
 	for (int i=0; i<ppool.size(); ++i)
-		if ( ppool[i].pid() == pid) {
-			ppool.kill(i);
-			return true;
+		if ( ppool[i].pid() == pid) {  /* 寻找目标进程 */
+			ppool.kill(i); /* 杀死该进程 */
+			return true; /* 成功返回逻辑真 */
 		}
 
-	/* 失败返回逻辑假 */
+	/* 失败（没找到）返回逻辑假 */
 	return false;
 }
 
-/* 启动一个子进程
+/* 
+ * 启动一个子进程
  *
  * {
  *	"pipe": "<integer>",
  *	"type": "exec",
  *	"exec": "<commandline>"
- * }
- *
- */
-static auto exec(const std::string& cmd) -> bool try {
+ * } */
+static auto exec(const std::string& cmd) -> bool try
+{
 	ppool.clr();
 	ppool.crtp(cmd);
-	return true;
+	return true;  /* 成功返回逻辑真 */
 }
 
 /* 如果出现任何异常，返回假 */
@@ -390,6 +393,7 @@ catch(std::exception& exp) {
 /*==============================================================*/
 /* 这些是尚未整理的工具 */
 
+/* --------------------------- */
 /* json字符串转boost.ptree
  * FIXME: 这个方法好像在ProcessManagerService进程托管服务中集成了*/
 boost::property_tree::ptree parseJsonToPtree(const std::string& jsonStr) {
@@ -404,6 +408,7 @@ boost::property_tree::ptree parseJsonToPtree(const std::string& jsonStr) {
     return pt;
 }
 
+/* --------------------------- */
 /* url 解码 */
 static std::string url_decode(const std::string& str) {
     std::string result;
